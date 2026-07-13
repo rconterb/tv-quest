@@ -16,26 +16,23 @@ export function gradientStrips(g, x, y, w, h, topColor, bottomColor, steps = 12)
     }
 }
 
-// Olhos grandes estilo mangá: esclera + íris + pupila + brilho + cílio
-function mangaEye(g, cx, cy, irisColor, lash = false) {
-    g.fillStyle(0xffffff); g.fillEllipse(cx, cy, 9, 11);
-    g.lineStyle(1.5, INK); g.strokeEllipse(cx, cy, 9, 11);
-    g.fillStyle(irisColor); g.fillCircle(cx, cy + 1, 3.2);
-    g.fillStyle(0x111111); g.fillCircle(cx, cy + 1, 1.6);
-    g.fillStyle(0xffffff); g.fillCircle(cx - 1.4, cy - 1.2, 1.3);
-    if (lash) {
-        g.lineStyle(1.5, INK);
-        g.lineBetween(cx - 4.5, cy - 5, cx - 6, cy - 7);
-        g.lineBetween(cx + 4.5, cy - 5, cx + 6, cy - 7);
+// Olhos pequenos e delicados: oval escuro com brilho (chibi fofo, sem exagero)
+function mangaEye(g, cx, cy, irisColor, lashDir = 0) {
+    g.fillStyle(irisColor); g.fillEllipse(cx, cy, 4.5, 6);
+    g.fillStyle(0xffffff); g.fillCircle(cx - 1, cy - 1.5, 1);
+    if (lashDir !== 0) {
+        g.lineStyle(1.2, INK);
+        g.lineBetween(cx + 2.5 * lashDir, cy - 3, cx + 4 * lashDir, cy - 4.5);
     }
 }
 
 function mangaMouthAndBlush(g, cx, cy) {
-    g.fillStyle(0x9c4a35);
-    g.slice(cx, cy, 3.5, 0, Math.PI, false);
-    g.fillPath();
-    g.fillStyle(0xff9aa2, 0.55);
-    g.fillCircle(cx - 12, cy - 2, 3); g.fillCircle(cx + 12, cy - 2, 3);
+    g.lineStyle(1.5, 0x9c4a35);
+    g.beginPath();
+    g.arc(cx, cy, 2.5, Math.PI * 0.15, Math.PI * 0.85, false);
+    g.strokePath();
+    g.fillStyle(0xff9aa2, 0.35);
+    g.fillCircle(cx - 10, cy - 2.5, 2.2); g.fillCircle(cx + 10, cy - 2.5, 2.2);
 }
 
 export function generateTextures(scene) {
@@ -62,35 +59,35 @@ export function generateTextures(scene) {
     g.fillTriangle(28, 13, 35, 13, 32, 20);
     g.lineStyle(2, INK);
     g.strokeRoundedRect(2, 2, 36, 13, { tl: 12, tr: 12, bl: 3, br: 3 });
-    mangaEye(g, 14, 24, 0x6b4a2a);
-    mangaEye(g, 27, 24, 0x6b4a2a);
-    g.lineStyle(1.5, INK);                      // sobrancelhas
-    g.lineBetween(10, 16.5, 17, 15.5); g.lineBetween(23, 15.5, 30, 16.5);
-    mangaMouthAndBlush(g, 20.5, 31);
+    mangaEye(g, 15, 24.5, 0x3a2a1e);
+    mangaEye(g, 26, 24.5, 0x3a2a1e);
+    mangaMouthAndBlush(g, 20.5, 30.5);
     g.generateTexture('head_boy', 40, 38);
 
-    // --- cabeça da menina: pele morena, cabelo comprido escuro ---
+    // --- cabeça da menina: pele morena, cabelo comprido escuro em mechas laterais ---
     g.clear();
     const girlSkin = 0xc98a5e, girlHair = 0x35221a, girlHairLight = 0x4d3325;
-    g.fillStyle(girlHair);                      // cabelão atrás (desce pelos ombros)
-    g.fillRoundedRect(4, 4, 36, 48, { tl: 15, tr: 15, bl: 9, br: 9 });
-    g.lineStyle(2, INK); g.strokeRoundedRect(4, 4, 36, 48, { tl: 15, tr: 15, bl: 9, br: 9 });
+    g.fillStyle(girlHair);                      // mechas compridas dos lados (não cobrem o rosto)
+    g.fillRoundedRect(3, 12, 9, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
+    g.fillRoundedRect(32, 12, 9, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
+    g.lineStyle(2, INK);
+    g.strokeRoundedRect(3, 12, 9, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
+    g.strokeRoundedRect(32, 12, 9, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
     g.fillStyle(girlSkin);                      // rosto
-    g.fillRoundedRect(8, 13, 28, 22, 9);
-    g.lineStyle(2, INK); g.strokeRoundedRect(8, 13, 28, 22, 9);
-    g.fillStyle(girlHair);                      // franja
-    g.fillRoundedRect(6, 6, 32, 10, { tl: 13, tr: 13, bl: 4, br: 4 });
-    g.fillTriangle(7, 15, 13, 15, 9, 22);
-    g.fillTriangle(31, 15, 37, 15, 35, 22);
+    g.fillRoundedRect(10, 12, 24, 22, 8);
+    g.lineStyle(2, INK); g.strokeRoundedRect(10, 12, 24, 22, 8);
+    g.fillStyle(girlHair);                      // topo + franja
+    g.fillRoundedRect(4, 3, 36, 13, { tl: 14, tr: 14, bl: 3, br: 3 });
+    g.lineStyle(2, INK); g.strokeRoundedRect(4, 3, 36, 13, { tl: 14, tr: 14, bl: 3, br: 3 });
     g.fillStyle(girlHairLight);                 // brilho do cabelo
-    g.fillRoundedRect(9, 7, 8, 4, 2);
+    g.fillRoundedRect(9, 5, 9, 3.5, 2);
     g.fillStyle(0xd9273e);                      // lacinho vermelho
     g.fillTriangle(33, 4, 39, 1, 38, 8);
     g.fillTriangle(33, 4, 28, 1, 29, 8);
     g.fillCircle(33, 4, 2);
-    mangaEye(g, 16, 26, 0x4a2f1d, true);
-    mangaEye(g, 28, 26, 0x4a2f1d, true);
-    mangaMouthAndBlush(g, 22, 32.5);
+    mangaEye(g, 17, 24.5, 0x2e1f14, -1);
+    mangaEye(g, 27, 24.5, 0x2e1f14, 1);
+    mangaMouthAndBlush(g, 22, 30.5);
     g.generateTexture('head_girl', 44, 54);
 
     // --- tronco do menino: camiseta preta do AC/DC (via RenderTexture p/ o texto) ---
@@ -99,17 +96,17 @@ export function generateTextures(scene) {
     g.lineStyle(2, INK); g.strokeRoundedRect(0, 0, 26, 20, 5);
     g.fillStyle(0x333333); g.fillRoundedRect(2, 1, 22, 4, 2);   // brilho da malha
     g.fillStyle(0xffd23f);                                       // raio ⚡ do logo
-    g.fillTriangle(14.5, 5, 10.5, 12, 13.5, 11);
-    g.fillTriangle(13.5, 11, 16, 10.5, 11, 17);
+    g.fillTriangle(14, 4.5, 11.5, 10.5, 13.5, 10);
+    g.fillTriangle(13, 10, 15, 9.5, 12, 15.5);
     const rtBoy = scene.make.renderTexture({ width: 26, height: 20, add: false });
     rtBoy.draw(g, 0, 0);
     const acdcStyle = {
-        fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '8px',
+        fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '7px',
         fontStyle: 'bold', color: '#ffffff'
     };
     const tAC = scene.make.text({ add: false, text: 'AC', style: acdcStyle });
     const tDC = scene.make.text({ add: false, text: 'DC', style: acdcStyle });
-    rtBoy.draw(tAC, 1.5, 5); rtBoy.draw(tDC, 15, 5);
+    rtBoy.draw(tAC, 1, 6); rtBoy.draw(tDC, 15.5, 6);
     tAC.destroy(); tDC.destroy();
     rtBoy.saveTexture('torso_boy'); // (o RT precisa continuar vivo para manter a textura)
 

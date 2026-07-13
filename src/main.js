@@ -3,7 +3,8 @@ import { GameScene } from './scenes/GameScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
 
 const config = {
-    type: Phaser.AUTO,
+    // ?canvas na URL força o renderer Canvas (útil para depurar/capturar tela)
+    type: new URLSearchParams(location.search).has('canvas') ? Phaser.CANVAS : Phaser.AUTO,
     width: 960,
     height: 540,
     parent: 'game-container',
