@@ -67,15 +67,15 @@ export function generateTextures(scene) {
     // --- cabeça da menina: pele morena, cabelo comprido escuro em mechas laterais ---
     g.clear();
     const girlSkin = 0xc98a5e, girlHair = 0x35221a, girlHairLight = 0x4d3325;
-    g.fillStyle(girlHair);                      // mechas compridas dos lados (não cobrem o rosto)
-    g.fillRoundedRect(3, 12, 9, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
-    g.fillRoundedRect(32, 12, 9, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
+    g.fillStyle(girlHair);                      // mechas compridas dos lados (afastadas do rosto)
+    g.fillRoundedRect(1, 10, 8, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
+    g.fillRoundedRect(35, 10, 8, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
     g.lineStyle(2, INK);
-    g.strokeRoundedRect(3, 12, 9, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
-    g.strokeRoundedRect(32, 12, 9, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
-    g.fillStyle(girlSkin);                      // rosto
+    g.strokeRoundedRect(1, 10, 8, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
+    g.strokeRoundedRect(35, 10, 8, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
+    g.fillStyle(girlSkin);                      // rosto (contorno suave em tom de pele, sem "barba")
     g.fillRoundedRect(10, 12, 24, 22, 8);
-    g.lineStyle(2, INK); g.strokeRoundedRect(10, 12, 24, 22, 8);
+    g.lineStyle(1.5, 0x9c6a44); g.strokeRoundedRect(10, 12, 24, 22, 8);
     g.fillStyle(girlHair);                      // topo + franja
     g.fillRoundedRect(4, 3, 36, 13, { tl: 14, tr: 14, bl: 3, br: 3 });
     g.lineStyle(2, INK); g.strokeRoundedRect(4, 3, 36, 13, { tl: 14, tr: 14, bl: 3, br: 3 });
