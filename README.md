@@ -7,17 +7,20 @@ Jogo de plataforma 2D em pixel art feito com [Phaser 3](https://phaser.io/). A T
 ## Como jogar
 
 - **← →** andar • **ESPAÇO/↑** pular (segure para pular mais alto)
+- **PULO DUPLO**: aperte pular de novo no ar para dar uma cambalhota e subir mais!
 - **R** reinicia a fase • **ESC** volta ao menu
 - Em telas de toque aparecem botões virtuais
 - Pule **na cabeça** dos robôs para derrotá-los; encostar de lado tira coração
 - 3 corações por fase; caiu no buraco ou zerou os corações, a fase recomeça
-- Almofadas cor-de-rosa são molas: encostou, voou!
+- Almofadas cor-de-rosa são molas: encostou, voou! (e ainda sobra um pulo no ar)
 - Colete as estrelas ⭐ de cada fase (o recorde fica salvo)
+- No menu dá para jogar **com ou sem música** (botão ♪ no canto superior esquerdo)
 
 ## Conteúdo
 
+- Visual estilo mangá/chibi: contornos de nanquim, olhos grandes com brilho e cel shading
 - 10 fases com rolagem de câmera, ambientadas nos cômodos da casa
-- 2 personagens jogáveis (menino e menina)
+- 2 personagens jogáveis: o menino (4 anos, camiseta do AC/DC, cabelo castanho claro) e a menina (cabelo comprido, vestido, meia-calça vermelha e botas pretas)
 - Inimigos patrulheiros, plataformas móveis, molas, buracos e escaladas
 - Física com *coyote time*, *jump buffering* e altura de pulo variável
 - Progresso salvo no navegador (fases desbloqueadas + estrelas por fase)

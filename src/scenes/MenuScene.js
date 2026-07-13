@@ -72,7 +72,7 @@ export class MenuScene extends Phaser.Scene {
             fontSize: '12px', fontFamily: 'monospace', color: '#666688'
         }).setOrigin(0.5);
 
-        // mudo
+        // mudo geral (música + efeitos)
         this.muteBtn = this.add.text(934, 24, save.muted ? '🔇' : '🔊', { fontSize: '22px' })
             .setOrigin(0.5).setInteractive({ useHandCursor: true });
         this.muteBtn.on('pointerdown', () => {
@@ -82,24 +82,42 @@ export class MenuScene extends Phaser.Scene {
             this.muteBtn.setText(muted ? '🔇' : '🔊');
         });
 
-        // inicia música na primeira interação (regra de autoplay dos navegadores)
+        // opção: jogar com ou sem música
+        const musicOn = save.music !== false;
+        this.musicBtn = this.add.text(26, 24, `♪ Música: ${musicOn ? 'SIM' : 'NÃO'}`, {
+            fontSize: '16px', fontFamily: 'monospace', fontStyle: 'bold',
+            color: musicOn ? '#80ed99' : '#8888aa',
+            backgroundColor: '#22223b', padding: { x: 10, y: 6 }
+        }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+        this.musicBtn.on('pointerdown', () => {
+            Sound.init();
+            Sound.resume();
+            const on = !(loadSave().music !== false);
+            updateSave({ music: on });
+            this.musicBtn.setText(`♪ Música: ${on ? 'SIM' : 'NÃO'}`);
+            this.musicBtn.setColor(on ? '#80ed99' : '#8888aa');
+            Sound.click();
+            if (on) Music.start();
+            else Music.stop();
+        });
+
+        // prepara o áudio na primeira interação (regra de autoplay dos navegadores)
         this.input.once('pointerdown', () => {
             Sound.init();
             Sound.resume();
-            Music.start();
         });
     }
 
     makeCharCard(x, y, charKey) {
-        const card = this.add.rectangle(x, y, 170, 130, 0x22223b)
+        const card = this.add.rectangle(x, y, 180, 148, 0x22223b)
             .setInteractive({ useHandCursor: true });
 
-        const preview = this.add.container(x, y - 4);
+        const preview = this.add.container(x, y - 12);
         const { all } = createCharacterParts(this, charKey);
         preview.add(all);
-        preview.setScale(2.1);
+        preview.setScale(1.55);
 
-        this.add.text(x, y + 47, CHARACTERS[charKey].label, {
+        this.add.text(x, y + 58, CHARACTERS[charKey].label, {
             fontSize: '17px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5);
 
@@ -154,7 +172,6 @@ export class MenuScene extends Phaser.Scene {
                 Sound.init();
                 Sound.resume();
                 Sound.click();
-                Music.start();
                 this.scene.start('GameScene', { character: this.selectedChar, level: lvlNum });
             });
         }

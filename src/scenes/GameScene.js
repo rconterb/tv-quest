@@ -5,6 +5,7 @@ import { Sound, Music } from '../audio.js';
 import { loadSave, updateSave } from '../save.js';
 
 const JUMP_VELOCITY = -540;
+const AIR_JUMP_VELOCITY = -500;  // segundo pulo (no ar)
 const SPRING_VELOCITY = -850;
 const COYOTE_MS = 110;      // tempo extra para pular depois de sair da borda
 const BUFFER_MS = 140;      // aperta pulo um pouco antes de pousar e ele acontece
@@ -22,6 +23,7 @@ export class GameScene extends Phaser.Scene {
         this.invulnUntil = 0;
         this.lastGroundedAt = -9999;
         this.lastJumpPressedAt = -9999;
+        this.jumpsUsed = 0;
         this.wasGrounded = false;
         this.lastFallSpeed = 0;
         this.nextRunDust = 0;
@@ -100,6 +102,10 @@ export class GameScene extends Phaser.Scene {
 
         this.createHud(lvl);
         this.showIntroBanner(lvl);
+
+        // trilha sonora conforme a opção do menu
+        if (loadSave().music !== false) Music.start();
+        else Music.stop();
     }
 
     // ---------- construção da fase ----------
@@ -194,7 +200,7 @@ export class GameScene extends Phaser.Scene {
                     }
                     case 'P':
                         this.spawnX = cx;
-                        this.spawnY = floorY - 30;
+                        this.spawnY = floorY - 34;
                         break;
                 }
             }
@@ -202,7 +208,7 @@ export class GameScene extends Phaser.Scene {
 
         // dica de controles na primeira fase
         if (this.levelIndex === 0 && !this.sys.game.device.input.touch) {
-            this.add.text(this.spawnX, this.spawnY - 90, '← → andar    ESPAÇO pular', {
+            this.add.text(this.spawnX, this.spawnY - 96, '← → andar    ESPAÇO pular (2x no ar!)', {
                 fontSize: '16px', fontFamily: 'monospace', color: '#5e3d20'
             }).setOrigin(0.5).setDepth(1);
         }
@@ -331,9 +337,12 @@ export class GameScene extends Phaser.Scene {
         else if (right && !left) body.setAccelerationX(accel);
         else body.setAccelerationX(0);
 
-        // pulo com coyote time + jump buffer + altura variável
+        // pulo com coyote time + jump buffer + altura variável + PULO DUPLO
         const grounded = body.touching.down || body.blocked.down;
-        if (grounded) this.lastGroundedAt = time;
+        if (grounded) {
+            this.lastGroundedAt = time;
+            this.jumpsUsed = 0;
+        }
 
         if (Phaser.Input.Keyboard.JustDown(this.keys.UP) ||
             Phaser.Input.Keyboard.JustDown(this.keys.W) ||
@@ -341,14 +350,28 @@ export class GameScene extends Phaser.Scene {
             this.lastJumpPressedAt = time;
         }
 
-        if (time - this.lastJumpPressedAt < BUFFER_MS && time - this.lastGroundedAt < COYOTE_MS) {
-            body.setVelocityY(JUMP_VELOCITY);
-            this.lastJumpPressedAt = -9999;
-            this.lastGroundedAt = -9999;
-            this.jumpCutAllowed = true; // só corta subida de pulo do jogador (mola não)
-            Sound.jump();
-            this.player.squashTo(0.82, 1.18, 100);
-            this.dustEmitter.explode(5, this.player.x, this.player.y + 16);
+        if (time - this.lastJumpPressedAt < BUFFER_MS) {
+            const firstJump = time - this.lastGroundedAt < COYOTE_MS && this.jumpsUsed === 0;
+            const airJump = !firstJump && this.jumpsUsed < 2;
+            if (firstJump || airJump) {
+                body.setVelocityY(firstJump ? JUMP_VELOCITY : AIR_JUMP_VELOCITY);
+                this.jumpsUsed = firstJump ? 1 : 2;
+                this.lastJumpPressedAt = -9999;
+                this.jumpCutAllowed = true; // só corta subida de pulo do jogador (mola não)
+                Sound.jump();
+                this.player.squashTo(0.82, 1.18, 100);
+                if (airJump) {
+                    // cambalhota do pulo duplo
+                    this.tweens.add({
+                        targets: this.player, angle: this.player.facing * 360,
+                        duration: 380, ease: 'Quad.easeOut',
+                        onComplete: () => { if (!this.isDead) this.player.setAngle(0); }
+                    });
+                    this.sparkEmitter.explode(6, this.player.x, this.player.y + 12);
+                } else {
+                    this.dustEmitter.explode(5, this.player.x, this.player.y + 24);
+                }
+            }
         }
 
         // soltar o botão no meio do pulo corta a subida (pulo curto)
@@ -362,7 +385,7 @@ export class GameScene extends Phaser.Scene {
         // aterrissagem: squash + poeira
         if (!this.wasGrounded && grounded && this.lastFallSpeed > 300) {
             this.player.squashTo(1.22, 0.78, 90);
-            this.dustEmitter.explode(7, this.player.x, this.player.y + 16);
+            this.dustEmitter.explode(7, this.player.x, this.player.y + 24);
             Sound.step();
         }
         this.wasGrounded = grounded;
@@ -370,7 +393,7 @@ export class GameScene extends Phaser.Scene {
 
         // poeirinha ao correr
         if (grounded && Math.abs(body.velocity.x) > 120 && time > this.nextRunDust) {
-            this.dustEmitter.explode(1, this.player.x - this.player.facing * 8, this.player.y + 16);
+            this.dustEmitter.explode(1, this.player.x - this.player.facing * 8, this.player.y + 24);
             this.nextRunDust = time + 160;
         }
 
@@ -410,6 +433,7 @@ export class GameScene extends Phaser.Scene {
         if (player.body.velocity.y >= -50) {
             player.body.setVelocityY(SPRING_VELOCITY);
             this.jumpCutAllowed = false; // impulso da mola nunca é cortado
+            this.jumpsUsed = 1;          // ainda dá para usar o pulo duplo no ar
             Sound.spring();
             player.squashTo(0.7, 1.3, 130);
             this.tweens.add({
@@ -424,6 +448,7 @@ export class GameScene extends Phaser.Scene {
         if (robot.body.touching.up && player.body.touching.down) {
             robot.squish();
             player.body.setVelocityY(-420);
+            this.jumpsUsed = 1; // pisão devolve o pulo duplo
             this.sparkEmitter.explode(6, robot.x, robot.y - 10);
         } else {
             this.hurt(robot.x);
