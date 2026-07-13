@@ -1,17 +1,10 @@
 {
   "name": "tv-quest",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
+  "description": "Em Busca da TV - jogo de plataforma 2D em Phaser 3, sem build (Phaser via CDN + ES modules)",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^5.2.0"
-  },
-  "dependencies": {
-    "phaser": "^3.80.0"
+    "dev": "python -m http.server 4173"
   }
 }

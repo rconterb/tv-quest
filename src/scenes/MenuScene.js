@@ -1,50 +1,162 @@
+import { levels } from '../levels.js';
+import { generateTextures, gradientStrips } from '../textures.js';
+import { createCharacterParts, CHARACTERS } from '../objects.js';
+import { Sound, Music } from '../audio.js';
+import { loadSave, updateSave } from '../save.js';
+
 export class MenuScene extends Phaser.Scene {
-    constructor() {
-        super('MenuScene');
-    }
+    constructor() { super('MenuScene'); }
+
+    preload() { generateTextures(this); }
 
     create() {
-        // Fundo escuro (estilo 8-bit night)
-        this.cameras.main.setBackgroundColor('#1a1a2e');
+        const save = loadSave();
+        this.selectedChar = save.character;
+        Sound.setMuted(save.muted);
 
-        this.add.text(400, 100, 'EM BUSCA DA TV', {
-            fontSize: '48px',
-            fill: '#ffb703',
-            fontFamily: 'monospace',
-            fontStyle: 'bold'
+        // fundo: sala escura iluminada pela TV
+        const bg = this.add.graphics();
+        gradientStrips(bg, 0, 0, 960, 540, 0x16213e, 0x0f0f1e, 14);
+
+        // brilho da TV
+        const glow = this.add.circle(480, 152, 120, 0x9be8ff, 0.14);
+        this.tweens.add({
+            targets: glow, alpha: 0.05, scale: 1.25,
+            duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+        });
+        const tv = this.add.image(480, 152, 'tv_on').setScale(1.15);
+        this.tweens.add({
+            targets: tv, scaleY: 1.18, duration: 1400,
+            yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+        });
+
+        // estrelinhas piscando no fundo
+        for (let i = 0; i < 14; i++) {
+            const s = this.add.image(
+                60 + Math.random() * 840, 30 + Math.random() * 200, 'spark'
+            ).setScale(0.4 + Math.random() * 0.5).setAlpha(0.15);
+            this.tweens.add({
+                targets: s, alpha: 0.5, duration: 600 + Math.random() * 900,
+                yoyo: true, repeat: -1, delay: Math.random() * 1000
+            });
+        }
+
+        this.add.text(480, 52, 'EM BUSCA DA TV', {
+            fontSize: '52px', fontFamily: 'monospace', fontStyle: 'bold',
+            color: '#ffd23f', stroke: '#7a4a00', strokeThickness: 8
+        }).setOrigin(0.5);
+        this.add.text(480, 95, 'Uma aventura pela casa', {
+            fontSize: '17px', fontFamily: 'monospace', color: '#8ecae6'
         }).setOrigin(0.5);
 
-        this.add.text(400, 180, 'Escolha seu personagem:', {
-            fontSize: '24px',
-            fill: '#ffffff',
-            fontFamily: 'monospace'
+        // ----- personagens -----
+        this.add.text(480, 236, 'Quem vai procurar a TV?', {
+            fontSize: '19px', fontFamily: 'monospace', color: '#ffffff'
         }).setOrigin(0.5);
 
-        // Criar textura para botão se não existir
-        let g = this.make.graphics({x: 0, y: 0, add: false});
+        this.charCards = {};
+        this.makeCharCard(370, 316, 'boy');
+        this.makeCharCard(590, 316, 'girl');
+        this.refreshCharCards();
 
-        // Botão Menino (Azul)
-        let boyBg = this.add.rectangle(250, 300, 200, 80, 0x023047).setInteractive({ useHandCursor: true });
-        boyBg.setStrokeStyle(4, 0x8ecae6);
-        this.add.text(250, 300, 'MENINO (4a)', { 
-            fontSize: '24px', fill: '#8ecae6', fontFamily: 'monospace', fontStyle: 'bold' 
+        // ----- seleção de fases -----
+        this.add.text(480, 412, 'Escolha a fase:', {
+            fontSize: '17px', fontFamily: 'monospace', color: '#ffffff'
         }).setOrigin(0.5);
-        boyBg.on('pointerdown', () => this.startGame('boy'));
-        boyBg.on('pointerover', () => boyBg.setFillStyle(0x219ebc));
-        boyBg.on('pointerout', () => boyBg.setFillStyle(0x023047));
 
-        // Botão Menina (Rosa)
-        let girlBg = this.add.rectangle(550, 300, 200, 80, 0x4a0033).setInteractive({ useHandCursor: true });
-        girlBg.setStrokeStyle(4, 0xffb703);
-        this.add.text(550, 300, 'MENINA (8a)', { 
-            fontSize: '24px', fill: '#ffb703', fontFamily: 'monospace', fontStyle: 'bold' 
+        for (let i = 0; i < levels.length; i++) {
+            this.makeLevelButton(i, save);
+        }
+
+        this.add.text(480, 522, 'Setas/ESPAÇO para jogar  •  R reinicia a fase  •  ESC volta ao menu', {
+            fontSize: '12px', fontFamily: 'monospace', color: '#666688'
         }).setOrigin(0.5);
-        girlBg.on('pointerdown', () => this.startGame('girl'));
-        girlBg.on('pointerover', () => girlBg.setFillStyle(0x8a005c));
-        girlBg.on('pointerout', () => girlBg.setFillStyle(0x4a0033));
+
+        // mudo
+        this.muteBtn = this.add.text(934, 24, save.muted ? '🔇' : '🔊', { fontSize: '22px' })
+            .setOrigin(0.5).setInteractive({ useHandCursor: true });
+        this.muteBtn.on('pointerdown', () => {
+            const muted = !loadSave().muted;
+            updateSave({ muted });
+            Sound.setMuted(muted);
+            this.muteBtn.setText(muted ? '🔇' : '🔊');
+        });
+
+        // inicia música na primeira interação (regra de autoplay dos navegadores)
+        this.input.once('pointerdown', () => {
+            Sound.init();
+            Sound.resume();
+            Music.start();
+        });
     }
 
-    startGame(character) {
-        this.scene.start('GameScene', { character: character, level: 1 });
+    makeCharCard(x, y, charKey) {
+        const card = this.add.rectangle(x, y, 170, 130, 0x22223b)
+            .setInteractive({ useHandCursor: true });
+
+        const preview = this.add.container(x, y - 4);
+        const { all } = createCharacterParts(this, charKey);
+        preview.add(all);
+        preview.setScale(2.1);
+
+        this.add.text(x, y + 47, CHARACTERS[charKey].label, {
+            fontSize: '17px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5);
+
+        card.on('pointerdown', () => {
+            Sound.click();
+            this.selectedChar = charKey;
+            updateSave({ character: charKey });
+            this.refreshCharCards();
+        });
+        card.on('pointerover', () => { if (this.selectedChar !== charKey) card.setFillStyle(0x2e2e52); });
+        card.on('pointerout', () => this.refreshCharCards());
+
+        this.charCards[charKey] = card;
+    }
+
+    refreshCharCards() {
+        for (const [key, card] of Object.entries(this.charCards)) {
+            if (key === this.selectedChar) {
+                card.setFillStyle(0x2a4494).setStrokeStyle(4, 0xffd23f);
+            } else {
+                card.setFillStyle(0x22223b).setStrokeStyle(2, 0x44446a);
+            }
+        }
+    }
+
+    makeLevelButton(i, save) {
+        const lvlNum = i + 1;
+        const unlocked = lvlNum <= save.unlocked;
+        const stars = save.stars[lvlNum] || 0;
+        const x = 480 + (i - 4.5) * 82;
+        const y = 458;
+
+        const btn = this.add.rectangle(x, y, 66, 54, unlocked ? 0x2a6fdb : 0x2a2a3e);
+        btn.setStrokeStyle(2, unlocked ? 0x8ecae6 : 0x44446a);
+
+        this.add.text(x, y - 9, unlocked ? String(lvlNum) : '🔒', {
+            fontSize: unlocked ? '22px' : '18px', fontFamily: 'monospace',
+            fontStyle: 'bold', color: unlocked ? '#ffffff' : '#666688'
+        }).setOrigin(0.5);
+
+        if (unlocked && stars > 0) {
+            this.add.text(x, y + 15, `★${stars}`, {
+                fontSize: '13px', fontFamily: 'monospace', color: '#ffd23f'
+            }).setOrigin(0.5);
+        }
+
+        if (unlocked) {
+            btn.setInteractive({ useHandCursor: true });
+            btn.on('pointerover', () => btn.setFillStyle(0x4a8fe8));
+            btn.on('pointerout', () => btn.setFillStyle(0x2a6fdb));
+            btn.on('pointerdown', () => {
+                Sound.init();
+                Sound.resume();
+                Sound.click();
+                Music.start();
+                this.scene.start('GameScene', { character: this.selectedChar, level: lvlNum });
+            });
+        }
     }
 }

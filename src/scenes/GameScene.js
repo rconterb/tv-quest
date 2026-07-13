@@ -1,217 +1,549 @@
-import { levels } from '../levels/LevelData.js';
+import { levels, THEMES, TILE, ROWS } from '../levels.js';
+import { generateTextures, gradientStrips } from '../textures.js';
+import { Player, Robot } from '../objects.js';
+import { Sound, Music } from '../audio.js';
+import { loadSave, updateSave } from '../save.js';
+
+const JUMP_VELOCITY = -540;
+const SPRING_VELOCITY = -850;
+const COYOTE_MS = 110;      // tempo extra para pular depois de sair da borda
+const BUFFER_MS = 140;      // aperta pulo um pouco antes de pousar e ele acontece
 
 export class GameScene extends Phaser.Scene {
-    constructor() {
-        super('GameScene');
-        this.tileSize = 40;
-    }
+    constructor() { super('GameScene'); }
 
     init(data) {
-        this.character = data.character || 'boy'; // 'boy' or 'girl'
+        this.character = data.character || loadSave().character;
         this.levelIndex = data.level ? data.level - 1 : 0;
+        this.isDead = false;
+        this.won = false;
+        this.starsCollected = 0;
+        this.hearts = 3;
+        this.invulnUntil = 0;
+        this.lastGroundedAt = -9999;
+        this.lastJumpPressedAt = -9999;
+        this.wasGrounded = false;
+        this.lastFallSpeed = 0;
+        this.nextRunDust = 0;
     }
 
-    preload() {
-        // Gera as texturas simples "pixeladas" usando Graphics
-        this.createTextures();
-    }
-
-    createTextures() {
-        const g = this.make.graphics({x: 0, y: 0, add: false});
-
-        // Chão (1)
-        g.clear();
-        g.fillStyle(0x4a4e69); // cor de pedra/cimento
-        g.fillRect(0, 0, this.tileSize, this.tileSize);
-        g.lineStyle(2, 0x22223b);
-        g.strokeRect(0, 0, this.tileSize, this.tileSize);
-        g.generateTexture('floor', this.tileSize, this.tileSize);
-
-        // Menino (Azulzinho)
-        g.clear();
-        g.fillStyle(0x0077b6);
-        g.fillRect(0, 0, this.tileSize * 0.7, this.tileSize * 0.9);
-        g.fillStyle(0xffd6a5); // rosto
-        g.fillRect(5, 5, 18, 12);
-        g.generateTexture('boy', this.tileSize * 0.7, this.tileSize * 0.9);
-
-        // Menina (Rosinha)
-        g.clear();
-        g.fillStyle(0x9d4edd);
-        g.fillRect(0, 0, this.tileSize * 0.7, this.tileSize * 0.9);
-        g.fillStyle(0xffd6a5); // rosto
-        g.fillRect(5, 5, 18, 12);
-        g.generateTexture('girl', this.tileSize * 0.7, this.tileSize * 0.9);
-
-        // TV (Goal) (2)
-        g.clear();
-        g.fillStyle(0x2b2d42); // caixa
-        g.fillRect(0, 0, this.tileSize, this.tileSize);
-        g.fillStyle(0xedf2f4); // tela
-        g.fillRect(5, 5, this.tileSize-10, this.tileSize-15);
-        g.fillStyle(0x000000); // base
-        g.fillRect(15, this.tileSize-10, 10, 10);
-        g.generateTexture('tv', this.tileSize, this.tileSize);
-
-        // Tênis (3)
-        g.clear();
-        g.fillStyle(0xd90429);
-        g.fillRect(0, this.tileSize/2, this.tileSize*0.8, this.tileSize/2);
-        g.fillStyle(0xffffff);
-        g.fillRect(0, this.tileSize-5, this.tileSize*0.8, 5); // sola
-        g.generateTexture('sneaker', this.tileSize*0.8, this.tileSize/2);
-
-        // Lego (4)
-        g.clear();
-        g.fillStyle(0xfcca46);
-        g.fillRect(0, 10, 20, 15);
-        g.fillRect(3, 5, 5, 5); // pino
-        g.fillRect(12, 5, 5, 5); // pino
-        g.generateTexture('lego', 20, 25);
-
-        // Livro (5)
-        g.clear();
-        g.fillStyle(0x028090);
-        g.fillRect(0, 0, 30, 20);
-        g.fillStyle(0xffffff);
-        g.fillRect(2, 2, 26, 16);
-        g.generateTexture('book', 30, 20);
-    }
+    preload() { generateTextures(this); }
 
     create() {
-        this.cameras.main.setBackgroundColor('#87CEEB'); // Céu azul claro
-        
+        const lvl = levels[this.levelIndex];
+        this.theme = THEMES[lvl.theme];
+        this.worldW = lvl.width * TILE;
+        this.worldH = 540;
+        this.offsetY = this.worldH - ROWS * TILE; // alinha o chão ao fundo da tela
+
+        this.createBackground();
+
+        // grupos de física
         this.platforms = this.physics.add.staticGroup();
-        this.obstacles = this.physics.add.group({ allowGravity: false, immovable: true });
-        this.tvs = this.physics.add.staticGroup();
+        this.hazards = this.physics.add.staticGroup();
+        this.stars = this.physics.add.staticGroup();
+        this.springs = this.physics.add.staticGroup();
+        this.tvGroup = this.physics.add.staticGroup();
+        this.robots = this.add.group();
+        this.movers = this.physics.add.group({ allowGravity: false, immovable: true });
 
-        this.loadLevel();
+        this.loadLevel(lvl);
 
-        // Player
-        this.player = this.physics.add.sprite(50, 50, this.character);
-        this.player.setCollideWorldBounds(true);
-        // Diminui um pouco o hitbox para ficar mais justo
-        this.player.body.setSize(this.player.width * 0.8, this.player.height * 0.9);
+        // jogador
+        this.player = new Player(this, this.spawnX, this.spawnY, this.character);
+        this.player.setDepth(5);
+        this.physics.world.setBounds(0, -200, this.worldW, this.worldH + 400);
+        this.physics.world.setBoundsCollision(true, true, false, false);
+        this.player.body.setCollideWorldBounds(true);
 
+        // colisões
         this.physics.add.collider(this.player, this.platforms);
-        this.physics.add.overlap(this.player, this.tvs, this.winLevel, null, this);
-        this.physics.add.collider(this.player, this.obstacles, this.hitObstacle, null, this);
+        this.physics.add.collider(this.player, this.movers);
+        this.physics.add.collider(this.robots, this.platforms);
+        this.physics.add.collider(this.player, this.robots, this.onRobotHit, null, this);
+        this.physics.add.overlap(this.player, this.springs, this.onSpring, null, this);
+        this.physics.add.overlap(this.player, this.hazards, this.onHazard, null, this);
+        this.physics.add.overlap(this.player, this.stars, this.onStar, null, this);
+        this.physics.add.overlap(this.player, this.tvGroup, this.onTv, null, this);
 
-        // Controles de teclado
-        this.cursors = this.input.keyboard.createCursorKeys();
+        // câmera
+        const cam = this.cameras.main;
+        cam.setBounds(0, 0, Math.max(this.worldW, 960), this.worldH);
+        cam.startFollow(this.player, true, 0.12, 0.12);
+        cam.setDeadzone(180, 120);
+        cam.fadeIn(400, 0, 0, 0);
 
-        // UI Text
-        const levelData = levels[this.levelIndex];
-        this.add.text(10, 10, levelData.text, { fontSize: '20px', fill: '#000', fontFamily: 'monospace', fontStyle: 'bold' });
-        
-        // Fase info
-        this.add.text(10, 40, `Fase ${this.levelIndex + 1}/10`, { fontSize: '16px', fill: '#000', fontFamily: 'monospace' });
+        // partículas
+        this.dustEmitter = this.add.particles(0, 0, 'dust', {
+            speed: { min: 20, max: 70 }, angle: { min: 230, max: 310 },
+            lifespan: 400, alpha: { start: 0.7, end: 0 },
+            scale: { start: 1, end: 0.2 }, emitting: false
+        }).setDepth(6);
+        this.sparkEmitter = this.add.particles(0, 0, 'spark', {
+            speed: { min: 40, max: 120 }, lifespan: 500,
+            alpha: { start: 1, end: 0 }, scale: { start: 1, end: 0.2 },
+            rotate: { min: 0, max: 180 }, emitting: false
+        }).setDepth(6);
+        this.confettiEmitter = this.add.particles(0, 0, 'confetti', {
+            speedY: { min: 80, max: 240 }, speedX: { min: -140, max: 140 },
+            rotate: { min: 0, max: 360 }, lifespan: 2000, gravityY: 300,
+            scale: { min: 0.5, max: 1 }, emitting: false,
+            tint: [0xffd23f, 0xff5da2, 0x4cc9f0, 0x80ed99, 0xff9f1c]
+        }).setDepth(90);
 
-        this.createVirtualControls();
-    }
-
-    createVirtualControls() {
+        // controles
+        this.keys = this.input.keyboard.addKeys('LEFT,RIGHT,UP,DOWN,SPACE,W,A,D,R,ESC,ENTER');
         this.leftPressed = false;
         this.rightPressed = false;
-        this.jumpPressed = false;
+        this.jumpHeld = false;
+        if (this.sys.game.device.input.touch) this.createTouchControls();
 
-        // Botão Esquerda
-        const btnLeft = this.add.rectangle(60, 400, 80, 80, 0xffffff, 0.5).setInteractive();
-        btnLeft.setScrollFactor(0);
-        this.add.text(60, 400, '<', { fontSize: '32px', fill: '#000', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
-        btnLeft.on('pointerdown', () => this.leftPressed = true);
-        btnLeft.on('pointerup', () => this.leftPressed = false);
-        btnLeft.on('pointerout', () => this.leftPressed = false);
-
-        // Botão Direita
-        const btnRight = this.add.rectangle(160, 400, 80, 80, 0xffffff, 0.5).setInteractive();
-        btnRight.setScrollFactor(0);
-        this.add.text(160, 400, '>', { fontSize: '32px', fill: '#000', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
-        btnRight.on('pointerdown', () => this.rightPressed = true);
-        btnRight.on('pointerup', () => this.rightPressed = false);
-        btnRight.on('pointerout', () => this.rightPressed = false);
-
-        // Botão Pulo
-        const btnJump = this.add.rectangle(740, 400, 80, 80, 0xffffff, 0.5).setInteractive();
-        btnJump.setScrollFactor(0);
-        this.add.text(740, 400, '^', { fontSize: '32px', fill: '#000', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
-        btnJump.on('pointerdown', () => this.jumpPressed = true);
-        btnJump.on('pointerup', () => this.jumpPressed = false);
-        btnJump.on('pointerout', () => this.jumpPressed = false);
+        this.createHud(lvl);
+        this.showIntroBanner(lvl);
     }
 
-    loadLevel() {
-        const levelData = levels[this.levelIndex];
-        const map = levelData.map;
+    // ---------- construção da fase ----------
 
-        for (let y = 0; y < map.length; y++) {
-            const row = map[y];
-            for (let x = 0; x < row.length; x++) {
-                const char = row[x];
-                const px = x * this.tileSize + (this.tileSize / 2);
-                const py = y * this.tileSize + (this.tileSize / 2) + 100; // offset Y to center map
+    createBackground() {
+        // parede com degradê
+        const bg = this.add.graphics().setScrollFactor(0).setDepth(-30);
+        gradientStrips(bg, 0, 0, 960, 540, this.theme.wallTop, this.theme.wallBottom, 14);
 
-                if (char === '1') {
-                    this.platforms.create(px, py, 'floor');
-                } else if (char === '2') {
-                    this.tvs.create(px, py, 'tv');
-                } else if (char === '3') {
-                    const obs = this.obstacles.create(px, py, 'sneaker');
-                    obs.body.setSize(obs.width*0.8, obs.height*0.8);
-                } else if (char === '4') {
-                    const obs = this.obstacles.create(px, py, 'lego');
-                    obs.body.setSize(obs.width*0.8, obs.height*0.8);
-                } else if (char === '5') {
-                    const obs = this.obstacles.create(px, py, 'book');
-                    obs.body.setSize(obs.width*0.8, obs.height*0.8);
+        // padrão de papel de parede com parallax suave
+        this.wallpaper = this.add.tileSprite(480, 270, 960, 540, 'wallpaper')
+            .setScrollFactor(0).setDepth(-25).setAlpha(0.18);
+
+        // janelas ao fundo
+        const winCover = (this.worldW - 960) * 0.35 + 960;
+        for (let x = 260; x < winCover; x += 430) {
+            this.add.image(x, 165, 'window').setScrollFactor(0.35).setDepth(-15).setAlpha(0.95);
+        }
+
+        // móveis do cômodo
+        const rand = this.seededRandom(this.levelIndex * 1000 + 7);
+        const decorCover = (this.worldW - 960) * 0.55 + 960;
+        for (let x = 140; x < decorCover; x += 240 + Math.floor(rand() * 120)) {
+            const key = this.theme.decor[Math.floor(rand() * this.theme.decor.length)];
+            this.add.image(x, this.worldH - TILE + 2, key)
+                .setOrigin(0.5, 1).setScrollFactor(0.55).setDepth(-10).setAlpha(0.92);
+        }
+    }
+
+    seededRandom(seed) {
+        let s = seed;
+        return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+    }
+
+    loadLevel(lvl) {
+        this.spawnX = 100;
+        this.spawnY = 300;
+        for (let r = 0; r < lvl.rows.length; r++) {
+            const row = lvl.rows[r];
+            for (let col = 0; col < row.length; col++) {
+                const ch = row[col];
+                if (ch === '.') continue;
+                const cx = col * TILE + TILE / 2;
+                const cy = this.offsetY + r * TILE + TILE / 2;
+                const floorY = this.offsetY + (r + 1) * TILE; // base da célula
+
+                switch (ch) {
+                    case '#':
+                        this.platforms.create(cx, cy, this.theme.block);
+                        break;
+                    case 'T': {
+                        const tv = this.tvGroup.create(cx + 10, floorY - 37, 'tv_off');
+                        tv.body.setSize(60, 60);
+                        this.tvSprite = tv;
+                        break;
+                    }
+                    case 't': this.addHazard(cx, floorY, 'sneaker'); break;
+                    case 'l': this.addHazard(cx, floorY, Math.random() < 0.5 ? 'lego_red' : 'lego_blue'); break;
+                    case 'b': this.addHazard(cx, floorY, 'book'); break;
+                    case 'c': {
+                        const star = this.stars.create(cx, cy, 'star');
+                        star.setDepth(2);
+                        this.tweens.add({
+                            targets: star, scale: { from: 1, to: 1.25 }, angle: { from: -12, to: 12 },
+                            duration: 550, yoyo: true, repeat: -1,
+                            delay: (col % 5) * 120, ease: 'Sine.easeInOut'
+                        });
+                        break;
+                    }
+                    case 'r': {
+                        const robot = new Robot(this, cx, floorY - 16,
+                            (col - 3) * TILE + TILE / 2, (col + 3) * TILE + TILE / 2);
+                        robot.setDepth(4);
+                        this.robots.add(robot);
+                        break;
+                    }
+                    case 's': {
+                        const spring = this.springs.create(cx, floorY - 9, 'cushion');
+                        spring.body.setSize(40, 12).setOffset(2, 6);
+                        break;
+                    }
+                    case 'm':
+                    case 'v': {
+                        const plat = this.movers.create(cx, cy, 'platform');
+                        plat.moveAxis = ch === 'm' ? 'x' : 'y';
+                        plat.min = (ch === 'm' ? cx : cy) - TILE * 2;
+                        plat.max = (ch === 'm' ? cx : cy) + TILE * 2;
+                        plat.moveSpeed = ch === 'm' ? 60 : 45;
+                        if (ch === 'm') plat.setVelocityX(plat.moveSpeed);
+                        else plat.setVelocityY(plat.moveSpeed);
+                        break;
+                    }
+                    case 'P':
+                        this.spawnX = cx;
+                        this.spawnY = floorY - 30;
+                        break;
                 }
             }
         }
+
+        // dica de controles na primeira fase
+        if (this.levelIndex === 0 && !this.sys.game.device.input.touch) {
+            this.add.text(this.spawnX, this.spawnY - 90, '← → andar    ESPAÇO pular', {
+                fontSize: '16px', fontFamily: 'monospace', color: '#5e3d20'
+            }).setOrigin(0.5).setDepth(1);
+        }
     }
 
-    update() {
-        if (!this.player || !this.player.body) return;
+    addHazard(cx, floorY, key) {
+        const h = this.hazards.create(cx, floorY, key);
+        h.setOrigin(0.5, 1);
+        h.body.setSize(h.width * 0.7, h.height * 0.7);
+        // static body precisa ser reposicionado após mudar a origem
+        h.body.updateFromGameObject();
+        h.body.setOffset(h.width * 0.15, h.height * 0.25);
+    }
 
-        const speed = 200;
-        
-        // Movimentação horizontal
-        if (this.cursors.left.isDown || this.leftPressed) {
-            this.player.setVelocityX(-speed);
-        } else if (this.cursors.right.isDown || this.rightPressed) {
-            this.player.setVelocityX(speed);
+    // ---------- HUD ----------
+
+    createHud(lvl) {
+        this.heartIcons = [];
+        for (let i = 0; i < 3; i++) {
+            this.heartIcons.push(
+                this.add.image(26 + i * 26, 26, 'heart').setScrollFactor(0).setDepth(100)
+            );
+        }
+
+        this.add.image(120, 26, 'star').setScrollFactor(0).setDepth(100).setScale(0.9);
+        this.starText = this.add.text(136, 26, `0/${lvl.totalStars}`, {
+            fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff',
+            stroke: '#22223b', strokeThickness: 4
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(100);
+
+        this.add.text(480, 22, `Fase ${this.levelIndex + 1}/10 — ${lvl.title}`, {
+            fontSize: '16px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff',
+            stroke: '#22223b', strokeThickness: 4
+        }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(100);
+
+        const save = loadSave();
+        Sound.setMuted(save.muted);
+        this.muteBtn = this.add.text(934, 24, save.muted ? '🔇' : '🔊', { fontSize: '22px' })
+            .setOrigin(0.5).setScrollFactor(0).setDepth(100)
+            .setInteractive({ useHandCursor: true });
+        this.muteBtn.on('pointerdown', () => {
+            const muted = !loadSave().muted;
+            updateSave({ muted });
+            Sound.setMuted(muted);
+            this.muteBtn.setText(muted ? '🔇' : '🔊');
+        });
+    }
+
+    updateHearts() {
+        this.heartIcons.forEach((icon, i) => {
+            icon.setTexture(i < this.hearts ? 'heart' : 'heart_empty');
+        });
+    }
+
+    showIntroBanner(lvl) {
+        const banner = this.add.container(480, -70).setScrollFactor(0).setDepth(110);
+        const bgRect = this.add.rectangle(0, 0, 560, 78, 0x22223b, 0.88).setStrokeStyle(3, 0xffd23f);
+        const title = this.add.text(0, -16, `Fase ${this.levelIndex + 1}: ${lvl.title}`, {
+            fontSize: '22px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffd23f'
+        }).setOrigin(0.5);
+        const tip = this.add.text(0, 14, lvl.tip, {
+            fontSize: '15px', fontFamily: 'monospace', color: '#ffffff'
+        }).setOrigin(0.5);
+        banner.add([bgRect, title, tip]);
+        this.tweens.add({
+            targets: banner, y: 90, duration: 450, ease: 'Back.easeOut',
+            onComplete: () => this.tweens.add({
+                targets: banner, y: -70, delay: 2100, duration: 350, ease: 'Back.easeIn',
+                onComplete: () => banner.destroy()
+            })
+        });
+    }
+
+    // ---------- controles de toque ----------
+
+    createTouchControls() {
+        const mk = (x, y, glyph) => {
+            const btn = this.add.image(x, y, 'btn').setScrollFactor(0).setDepth(150)
+                .setAlpha(0.4).setInteractive();
+            this.add.text(x, y, glyph, {
+                fontSize: '34px', fontFamily: 'monospace', fontStyle: 'bold', color: '#22223b'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(151).setAlpha(0.75);
+            return btn;
+        };
+        const left = mk(70, 465, '←');
+        const right = mk(180, 465, '→');
+        const jump = mk(880, 465, '▲');
+
+        left.on('pointerdown', () => this.leftPressed = true);
+        left.on('pointerup', () => this.leftPressed = false);
+        left.on('pointerout', () => this.leftPressed = false);
+        right.on('pointerdown', () => this.rightPressed = true);
+        right.on('pointerup', () => this.rightPressed = false);
+        right.on('pointerout', () => this.rightPressed = false);
+        jump.on('pointerdown', () => {
+            this.lastJumpPressedAt = this.time.now;
+            this.jumpTouchHeld = true;
+        });
+        jump.on('pointerup', () => this.jumpTouchHeld = false);
+        jump.on('pointerout', () => this.jumpTouchHeld = false);
+    }
+
+    // ---------- loop principal ----------
+
+    update(time, delta) {
+        if (this.won) {
+            if (Phaser.Input.Keyboard.JustDown(this.keys.ENTER) ||
+                Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) {
+                if (this.nextAction) this.nextAction();
+            }
+            return;
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.keys.R)) return this.restart();
+        if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
+            Sound.click();
+            return this.scene.start('MenuScene');
+        }
+        if (this.isDead || !this.player || !this.player.body) return;
+
+        const body = this.player.body;
+        const accel = 1600;
+        const left = this.keys.LEFT.isDown || this.keys.A.isDown || this.leftPressed;
+        const right = this.keys.RIGHT.isDown || this.keys.D.isDown || this.rightPressed;
+
+        if (left && !right) body.setAccelerationX(-accel);
+        else if (right && !left) body.setAccelerationX(accel);
+        else body.setAccelerationX(0);
+
+        // pulo com coyote time + jump buffer + altura variável
+        const grounded = body.touching.down || body.blocked.down;
+        if (grounded) this.lastGroundedAt = time;
+
+        if (Phaser.Input.Keyboard.JustDown(this.keys.UP) ||
+            Phaser.Input.Keyboard.JustDown(this.keys.W) ||
+            Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) {
+            this.lastJumpPressedAt = time;
+        }
+
+        if (time - this.lastJumpPressedAt < BUFFER_MS && time - this.lastGroundedAt < COYOTE_MS) {
+            body.setVelocityY(JUMP_VELOCITY);
+            this.lastJumpPressedAt = -9999;
+            this.lastGroundedAt = -9999;
+            this.jumpCutAllowed = true; // só corta subida de pulo do jogador (mola não)
+            Sound.jump();
+            this.player.squashTo(0.82, 1.18, 100);
+            this.dustEmitter.explode(5, this.player.x, this.player.y + 16);
+        }
+
+        // soltar o botão no meio do pulo corta a subida (pulo curto)
+        const jumpHeld = this.keys.UP.isDown || this.keys.W.isDown ||
+            this.keys.SPACE.isDown || this.jumpTouchHeld;
+        if (!grounded && !jumpHeld && this.jumpCutAllowed && body.velocity.y < -180) {
+            body.setVelocityY(body.velocity.y * 0.82);
+        }
+        if (grounded || body.velocity.y >= 0) this.jumpCutAllowed = false;
+
+        // aterrissagem: squash + poeira
+        if (!this.wasGrounded && grounded && this.lastFallSpeed > 300) {
+            this.player.squashTo(1.22, 0.78, 90);
+            this.dustEmitter.explode(7, this.player.x, this.player.y + 16);
+            Sound.step();
+        }
+        this.wasGrounded = grounded;
+        this.lastFallSpeed = body.velocity.y;
+
+        // poeirinha ao correr
+        if (grounded && Math.abs(body.velocity.x) > 120 && time > this.nextRunDust) {
+            this.dustEmitter.explode(1, this.player.x - this.player.facing * 8, this.player.y + 16);
+            this.nextRunDust = time + 160;
+        }
+
+        // plataformas móveis: inverte nos limites e carrega o jogador junto
+        this.movers.getChildren().forEach(p => {
+            if (p.moveAxis === 'x') {
+                if (p.x <= p.min) p.setVelocityX(p.moveSpeed);
+                else if (p.x >= p.max) p.setVelocityX(-p.moveSpeed);
+            } else {
+                if (p.y <= p.min) p.setVelocityY(p.moveSpeed);
+                else if (p.y >= p.max) p.setVelocityY(-p.moveSpeed);
+            }
+            if (body.touching.down && p.body.touching.up) {
+                this.player.x += p.body.deltaX();
+                if (p.body.deltaY() > 0) this.player.y += p.body.deltaY();
+            }
+        });
+
+        // caiu do mundo
+        if (this.player.y > this.worldH + 80) this.die(true);
+
+        this.player.updateAnim(time, delta);
+    }
+
+    // ---------- eventos ----------
+
+    onStar(player, star) {
+        star.destroy();
+        this.starsCollected++;
+        this.starText.setText(`${this.starsCollected}/${levels[this.levelIndex].totalStars}`);
+        Sound.coin();
+        this.sparkEmitter.explode(8, star.x, star.y);
+    }
+
+    onSpring(player, spring) {
+        // quica sempre que encostar caindo ou andando (nunca corta um pulo em subida)
+        if (player.body.velocity.y >= -50) {
+            player.body.setVelocityY(SPRING_VELOCITY);
+            this.jumpCutAllowed = false; // impulso da mola nunca é cortado
+            Sound.spring();
+            player.squashTo(0.7, 1.3, 130);
+            this.tweens.add({
+                targets: spring, scaleY: 0.5, duration: 90, yoyo: true, ease: 'Quad.easeOut'
+            });
+            this.dustEmitter.explode(6, spring.x, spring.y);
+        }
+    }
+
+    onRobotHit(player, robot) {
+        if (robot.squished || this.isDead) return;
+        if (robot.body.touching.up && player.body.touching.down) {
+            robot.squish();
+            player.body.setVelocityY(-420);
+            this.sparkEmitter.explode(6, robot.x, robot.y - 10);
         } else {
-            this.player.setVelocityX(0);
-        }
-
-        // Pulo
-        if ((this.cursors.up.isDown || this.jumpPressed) && this.player.body.touching.down) {
-            // Se for menina, o pulo pode ser um pouco maior, se quiser, mas vamos manter igual por agora
-            const jumpSpeed = this.character === 'girl' ? -550 : -500;
-            this.player.setVelocityY(jumpSpeed);
-            this.jumpPressed = false; // reset to avoid holding
-        }
-
-        // Caiu do mapa (buraco)
-        if (this.player.y > 600) {
-            this.restartLevel();
+            this.hurt(robot.x);
         }
     }
 
-    hitObstacle(player, obstacle) {
-        this.restartLevel();
+    onHazard(player, hazard) {
+        this.hurt(hazard.x);
     }
 
-    restartLevel() {
-        // Efeito de morte rápido
-        this.scene.restart();
+    hurt(fromX) {
+        if (this.isDead || this.won || this.time.now < this.invulnUntil) return;
+        this.hearts--;
+        this.updateHearts();
+        Sound.hurt();
+        this.cameras.main.shake(150, 0.006);
+
+        if (this.hearts <= 0) return this.die(false);
+
+        this.invulnUntil = this.time.now + 1500;
+        const dir = this.player.x < fromX ? -1 : 1;
+        this.player.body.setVelocity(dir * 240, -330);
+        this.tweens.add({
+            targets: this.player, alpha: 0.25,
+            duration: 110, yoyo: true, repeat: 6,
+            onComplete: () => this.player.setAlpha(1)
+        });
     }
 
-    winLevel() {
-        if (this.levelIndex + 1 < levels.length) {
-            this.scene.start('GameScene', { character: this.character, level: this.levelIndex + 2 });
-        } else {
-            // Zerou!
-            this.scene.start('MenuScene');
-        }
+    die(fell) {
+        if (this.isDead) return;
+        this.isDead = true;
+        Sound.death();
+        this.cameras.main.shake(250, 0.01);
+
+        const body = this.player.body;
+        body.checkCollision.none = true;
+        body.setAcceleration(0, 0);
+        if (!fell) body.setVelocity(-this.player.facing * 120, -420);
+        this.tweens.add({ targets: this.player, angle: 540, duration: 800 });
+
+        this.cameras.main.fadeOut(650, 0, 0, 0);
+        this.time.delayedCall(800, () => this.restart());
+    }
+
+    restart() {
+        this.scene.restart({ character: this.character, level: this.levelIndex + 1 });
+    }
+
+    onTv(player, tv) {
+        if (this.won || this.isDead) return;
+        this.won = true;
+
+        // congela o jogador comemorando
+        player.body.setAcceleration(0, 0);
+        player.body.setVelocityX(0);
+
+        tv.setTexture('tv_on');
+        Sound.win();
+        this.confettiEmitter.explode(50, tv.x, tv.y - 40);
+        this.tweens.add({
+            targets: tv, scale: 1.08, duration: 180, yoyo: true, repeat: 2
+        });
+
+        // brilho da TV
+        const glow = this.add.circle(tv.x, tv.y, 70, 0x9be8ff, 0.25).setDepth(3);
+        this.tweens.add({
+            targets: glow, alpha: 0.05, scale: 1.4,
+            duration: 700, yoyo: true, repeat: -1
+        });
+
+        // salva progresso
+        const save = loadSave();
+        const lvlNum = this.levelIndex + 1;
+        const bestStars = Math.max(save.stars[lvlNum] || 0, this.starsCollected);
+        updateSave({
+            unlocked: Math.max(save.unlocked, Math.min(lvlNum + 1, levels.length)),
+            stars: { ...save.stars, [lvlNum]: bestStars }
+        });
+
+        this.time.delayedCall(900, () => this.showWinPanel());
+    }
+
+    showWinPanel() {
+        const lvl = levels[this.levelIndex];
+        const isLast = this.levelIndex === levels.length - 1;
+
+        this.add.rectangle(480, 270, 960, 540, 0x000000, 0.55)
+            .setScrollFactor(0).setDepth(199);
+        const panel = this.add.container(480, 270).setScrollFactor(0).setDepth(200);
+        const bgRect = this.add.rectangle(0, 0, 460, 240, 0x22223b, 0.97)
+            .setStrokeStyle(4, 0xffd23f);
+        const title = this.add.text(0, -80, `Fase ${this.levelIndex + 1} completa!`, {
+            fontSize: '28px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffd23f'
+        }).setOrigin(0.5);
+        const starsLine = this.add.text(0, -34, `⭐ ${this.starsCollected} de ${lvl.totalStars} estrelas`, {
+            fontSize: '20px', fontFamily: 'monospace', color: '#ffffff'
+        }).setOrigin(0.5);
+
+        const btnLabel = isLast ? 'VER A TV LENDÁRIA!' : 'PRÓXIMA FASE  ➜';
+        const btn = this.add.rectangle(0, 46, 300, 54, 0x2a6fdb)
+            .setStrokeStyle(3, 0x8ecae6).setInteractive({ useHandCursor: true });
+        const btnText = this.add.text(0, 46, btnLabel, {
+            fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5);
+        const hint = this.add.text(0, 96, 'ou aperte ENTER', {
+            fontSize: '13px', fontFamily: 'monospace', color: '#8888aa'
+        }).setOrigin(0.5);
+
+        panel.add([bgRect, title, starsLine, btn, btnText, hint]);
+        panel.setScale(0.6).setAlpha(0);
+        this.tweens.add({ targets: panel, scale: 1, alpha: 1, duration: 300, ease: 'Back.easeOut' });
+
+        this.nextAction = () => {
+            Sound.click();
+            if (isLast) this.scene.start('VictoryScene', { character: this.character });
+            else this.scene.start('GameScene', { character: this.character, level: this.levelIndex + 2 });
+        };
+        btn.on('pointerover', () => btn.setFillStyle(0x4a8fe8));
+        btn.on('pointerout', () => btn.setFillStyle(0x2a6fdb));
+        btn.on('pointerdown', () => this.nextAction());
     }
 }
