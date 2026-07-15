@@ -1,4 +1,4 @@
-// Personagens (sprites) e inimigos
+// Personagens (sprites 128×128) e inimigos
 import { Sound } from './audio.js';
 import {
     CHAR_BODY,
@@ -11,8 +11,9 @@ import {
 export { CHARACTERS };
 
 /**
- * Player baseado em spritesheet/frames.
- * Arte de perfil olha para a ESQUERDA → flipX quando facing = +1 (direita).
+ * Player com sprites.
+ * Arte de perfil olha para a DIREITA → flipX quando facing = -1 (esquerda).
+ * Canvas fixo → sem “pulo” de hitbox/posição entre frames.
  */
 export class Player extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, charKey) {
@@ -26,24 +27,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
         this.baseScale = CHAR_DISPLAY_SCALE;
         this.setScale(this.baseScale);
-        this.setOrigin(0.5, 1); // pés no chão
+        this.setOrigin(0.5, 1);
 
+        // hitbox fixa (canvas 128×128)
         const bw = CHAR_BODY.width;
         const bh = CHAR_BODY.height;
         this.body.setSize(bw, bh);
-        // origin 0.5,1 → offset do body relativo ao top-left do frame
-        this.body.setOffset(
-            (this.width - bw) / 2,
-            this.height - bh - 2
-        );
-        this.body.setDragX(1800);
+        this.body.setOffset((128 - bw) / 2, 128 - bh - 4);
+        this.body.setDragX(2000);
         this.body.setMaxVelocity(250, 900);
 
         this.animTime = 0;
-        this.facing = 1; // +1 direita, -1 esquerda
+        this.facing = 1;
         this.squash = { x: 1, y: 1 };
         this.stepMuted = false;
         this.currentAnim = null;
+        this.airFrame = null;
 
         this.playAnim('idle');
         this.applyFacing();
@@ -54,12 +53,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         if (this.currentAnim === key) return;
         if (!this.anims.animationManager.exists(key)) return;
         this.currentAnim = key;
-        this.play(key, true);
+        this.airFrame = null;
+        this.anims.play(key, true);
     }
 
     applyFacing() {
-        // sprites de perfil olham para a esquerda
-        this.setFlipX(this.facing > 0);
+        // sprites olham para a direita
+        this.setFlipX(this.facing < 0);
         this.setScale(
             this.baseScale * Math.abs(this.squash.x),
             this.baseScale * this.squash.y
@@ -79,13 +79,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         });
     }
 
-    refreshBody() {
-        if (!this.body) return;
-        const bw = CHAR_BODY.width;
-        const bh = CHAR_BODY.height;
-        // origin 0.5,1 — body centrado nos pés
-        this.body.setSize(bw, bh);
-        this.body.setOffset((this.width - bw) / 2, this.height - bh - 2);
+    setAirPose(frame) {
+        if (this.airFrame === frame) return;
+        this.airFrame = frame;
+        this.currentAnim = `${this.charKey}-jump`;
+        this.anims.stop();
+        this.setTexture(charTex(this.charKey, frame));
     }
 
     updateAnim(time, delta) {
@@ -94,39 +93,31 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         const vx = this.body.velocity.x;
         const vy = this.body.velocity.y;
         const speed = Math.abs(vx);
-        const isMoving = speed > 12;
+        const isMoving = speed > 18;
         const isGrounded = this.body.touching.down || this.body.blocked.down;
 
-        if (vx > 8) this.facing = 1;
-        else if (vx < -8) this.facing = -1;
+        // deadzone maior evita flip nervoso por atrito
+        if (vx > 20) this.facing = 1;
+        else if (vx < -20) this.facing = -1;
         this.applyFacing();
 
         if (!isGrounded) {
-            // pose aérea estática (melhor leitura que ciclar frames)
-            if (this.currentAnim !== `${this.charKey}-jump`) {
-                this.currentAnim = `${this.charKey}-jump`;
-                this.anims.stop();
-            }
-            const frame = vy < -60 ? 'jump_b' : (vy > 120 ? 'jump' : 'jump_mid');
-            const tex = charTex(this.charKey, frame);
-            if (this.texture.key !== tex) this.setTexture(tex);
+            // um único frame estável por fase do pulo (sem trocar a cada tick)
+            const frame = vy < -80 ? 'jump_b' : (vy > 160 ? 'jump' : 'jump_mid');
+            this.setAirPose(frame);
         } else if (isMoving) {
             this.playAnim('run');
             const prev = this.animTime;
-            this.animTime += delta * 0.012 * Phaser.Math.Clamp(speed / 200, 0.4, 1.2);
-            if (!this.stepMuted) {
-                if (Math.floor(prev / 180) !== Math.floor(this.animTime / 180)) {
-                    Sound.step();
-                }
+            this.animTime += delta * 0.011 * Phaser.Math.Clamp(speed / 200, 0.45, 1.15);
+            if (!this.stepMuted && Math.floor(prev / 200) !== Math.floor(this.animTime / 200)) {
+                Sound.step();
             }
             if (this.anims.currentAnim) {
-                this.anims.msPerFrame = Phaser.Math.Clamp(1000 / (8 + speed / 30), 55, 120);
+                this.anims.msPerFrame = Phaser.Math.Clamp(1000 / (7 + speed / 28), 60, 130);
             }
         } else {
             this.playAnim('idle');
         }
-
-        this.refreshBody();
     }
 }
 
@@ -136,8 +127,8 @@ export class Robot extends Phaser.Physics.Arcade.Sprite {
         scene.add.existing(this);
         scene.physics.add.existing(this);
 
-        this.body.setSize(30, 26);
-        this.body.setOffset(2, 6);
+        this.body.setSize(28, 24);
+        this.body.setOffset(3, 7);
         this.minX = minX;
         this.maxX = maxX;
         this.dir = -1;
@@ -145,13 +136,8 @@ export class Robot extends Phaser.Physics.Arcade.Sprite {
         this.squished = false;
 
         scene.tweens.add({
-            targets: this, angle: { from: -3.5, to: 3.5 },
-            duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-        });
-        scene.tweens.add({
-            targets: this, scaleY: { from: 0.96, to: 1.05 },
-            duration: 320, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-            delay: Math.random() * 200
+            targets: this, angle: { from: -2.5, to: 2.5 },
+            duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
     }
 
@@ -163,7 +149,7 @@ export class Robot extends Phaser.Physics.Arcade.Sprite {
         else if (this.x >= this.maxX || this.body.blocked.right) this.dir = -1;
 
         this.setVelocityX(this.speed * this.dir);
-        this.setFlipX(this.dir > 0);
+        this.setFlipX(this.dir < 0);
     }
 
     squish() {

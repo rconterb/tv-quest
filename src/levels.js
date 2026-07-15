@@ -19,13 +19,14 @@ export const ROWS = 11;
 const g = (n) => '#'.repeat(n);
 const d = (n) => '.'.repeat(n);
 
+// Paleta aquarela / Ghibli — paredes claras, luz quente
 export const THEMES = {
-    sala:       { name: 'Sala de Estar',  wallTop: 0xffe8c2, wallBottom: 0xe8b96f, block: 'block_wood',   decor: ['sofa', 'painting', 'plant', 'lamp'] },
-    quarto:     { name: 'Quarto',         wallTop: 0xcfe0ff, wallBottom: 0x93b4e8, block: 'block_carpet', decor: ['shelf', 'box', 'plant'] },
-    cozinha:    { name: 'Cozinha',        wallTop: 0xe0f5e9, wallBottom: 0x9fd8b4, block: 'block_tile',   decor: ['fridge', 'table', 'plant'] },
-    corredor:   { name: 'Corredor',       wallTop: 0xf5e0e8, wallBottom: 0xd8a0b4, block: 'block_wood',   decor: ['painting', 'lamp', 'plant'] },
-    escritorio: { name: 'Escritório',     wallTop: 0xe8e0d0, wallBottom: 0xbfae8e, block: 'block_desk',   decor: ['shelf', 'painting', 'lamp'] },
-    sotao:      { name: 'Sótão',          wallTop: 0x4a3f5e, wallBottom: 0x2e2640, block: 'block_attic',  decor: ['box', 'shelf', 'lamp'] }
+    sala:       { name: 'Sala de Estar',  wallTop: 0xfff6e8, wallBottom: 0xf0d2a8, block: 'block_wood',   decor: ['sofa', 'plant', 'lamp'] },
+    quarto:     { name: 'Quarto',         wallTop: 0xeef4ff, wallBottom: 0xc5d8f5, block: 'block_carpet', decor: ['shelf', 'box', 'plant'] },
+    cozinha:    { name: 'Cozinha',        wallTop: 0xf0faf2, wallBottom: 0xc5e8d0, block: 'block_tile',   decor: ['fridge', 'table', 'plant'] },
+    corredor:   { name: 'Corredor',       wallTop: 0xfff0f4, wallBottom: 0xecc0d0, block: 'block_wood',   decor: ['lamp', 'plant'] },
+    escritorio: { name: 'Escritório',     wallTop: 0xf8f2e6, wallBottom: 0xddd0b4, block: 'block_desk',   decor: ['shelf', 'lamp', 'plant'] },
+    sotao:      { name: 'Sótão',          wallTop: 0x6a5f7a, wallBottom: 0x3e3550, block: 'block_attic',  decor: ['box', 'shelf', 'lamp'] }
 };
 
 export const levels = [

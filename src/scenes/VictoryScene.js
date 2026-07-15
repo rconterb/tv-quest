@@ -17,9 +17,9 @@ export class VictoryScene extends Phaser.Scene {
         Sound.victory();
 
         const bg = this.add.graphics();
-        gradientStrips(bg, 0, 0, 960, 540, 0x2e2640, 0x16121f, 18);
+        gradientStrips(bg, 0, 0, 960, 540, 0xfff6e8, 0xd8b890, 32);
 
-        const glow = this.add.circle(480, 210, 160, 0x9be8ff, 0.18);
+        const glow = this.add.circle(480, 210, 160, 0xfff0b0, 0.28);
         this.tweens.add({
             targets: glow, alpha: 0.06, scale: 1.3,
             duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
@@ -46,11 +46,11 @@ export class VictoryScene extends Phaser.Scene {
         makeKid(560, 'girl', true);
 
         this.add.text(480, 66, 'PARABÉNS!', {
-            fontSize: '58px', fontFamily: 'monospace', fontStyle: 'bold',
-            color: '#ffd23f', stroke: '#7a4a00', strokeThickness: 8
+            fontSize: '56px', fontFamily: 'Georgia, serif', fontStyle: 'bold',
+            color: '#c47a20', stroke: '#fff6e8', strokeThickness: 6
         }).setOrigin(0.5);
         this.add.text(480, 116, 'Vocês encontraram a TV lendária!', {
-            fontSize: '20px', fontFamily: 'monospace', color: '#ffffff'
+            fontSize: '20px', fontFamily: 'Georgia, serif', color: '#6b5344'
         }).setOrigin(0.5);
 
         const save = loadSave();

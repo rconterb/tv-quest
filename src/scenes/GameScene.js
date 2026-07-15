@@ -137,27 +137,44 @@ export class GameScene extends Phaser.Scene {
     // ---------- construção da fase ----------
 
     createBackground() {
-        // parede com degradê (mais faixas = menos banding)
+        // parede aquarela (muitas faixas = degradê suave)
         const bg = this.add.graphics().setScrollFactor(0).setDepth(-30);
-        gradientStrips(bg, 0, 0, 960, 540, this.theme.wallTop, this.theme.wallBottom, 24);
+        gradientStrips(bg, 0, 0, 960, 540, this.theme.wallTop, this.theme.wallBottom, 36);
 
-        // padrão de papel de parede com parallax suave
-        this.wallpaper = this.add.tileSprite(480, 270, 960, 540, 'wallpaper')
-            .setScrollFactor(0).setDepth(-25).setAlpha(0.18);
+        // faixa de luz do teto
+        const light = this.add.graphics().setScrollFactor(0).setDepth(-29);
+        light.fillStyle(0xffffff, 0.12);
+        light.fillEllipse(480, -20, 900, 160);
 
-        // janelas ao fundo
+        // papel de parede floral bem sutil
+        this.wallpaper = this.add.tileSprite(480, 250, 960, 420, 'wallpaper')
+            .setScrollFactor(0).setDepth(-25).setAlpha(0.14);
+
+        // rodapé
+        this.add.tileSprite(480, 470, 960, 16, 'wainscot')
+            .setScrollFactor(0).setDepth(-24).setAlpha(0.5);
+
+        // janelas com luz dourada (parallax)
         const winCover = (this.worldW - 960) * 0.35 + 960;
-        for (let x = 260; x < winCover; x += 430) {
-            this.add.image(x, 165, 'window').setScrollFactor(0.35).setDepth(-15).setAlpha(0.95);
+        for (let x = 220; x < winCover; x += 460) {
+            this.add.image(x, 150, 'window')
+                .setScrollFactor(0.3).setDepth(-15).setAlpha(0.92).setScale(0.95);
+            // mancha de sol no chão
+            const sun = this.add.ellipse(x + 20, 420, 90, 24, 0xffe8a0, 0.12)
+                .setScrollFactor(0.35).setDepth(-14);
+            this.tweens.add({
+                targets: sun, alpha: 0.06, duration: 2200,
+                yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            });
         }
 
-        // móveis do cômodo
+        // móveis do cômodo (sem "quadros" hard-edged competindo com os sprites)
         const rand = this.seededRandom(this.levelIndex * 1000 + 7);
         const decorCover = (this.worldW - 960) * 0.55 + 960;
-        for (let x = 140; x < decorCover; x += 240 + Math.floor(rand() * 120)) {
+        for (let x = 160; x < decorCover; x += 260 + Math.floor(rand() * 100)) {
             const key = this.theme.decor[Math.floor(rand() * this.theme.decor.length)];
             this.add.image(x, this.worldH - TILE + 2, key)
-                .setOrigin(0.5, 1).setScrollFactor(0.55).setDepth(-10).setAlpha(0.92);
+                .setOrigin(0.5, 1).setScrollFactor(0.5).setDepth(-10).setAlpha(0.88);
         }
     }
 

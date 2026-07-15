@@ -1,22 +1,20 @@
-// Carrega e registra animações dos personagens (sprites embutidos)
+// Sprites embutidos — canvas 128×128, perfil olhando para a DIREITA
 export const CHARACTERS = {
     boy: { label: 'MENINO' },
     girl: { label: 'MENINA' }
 };
 
-// arquivos em assets/chars/{boy|girl}/
+// Apenas frames usados no jogo (todos no mesmo tamanho)
 const FRAMES = {
     boy: [
-        'idle', 'idle_b', 'front', 'front2',
-        'walk1', 'walk2', 'run3', 'run_a', 'run_b',
-        'jump', 'jump_b', 'jump_start', 'jump_mid',
-        'crouch', 'happy', 'bag_adj', 'sheet_side', 'sheet_front'
+        'idle', 'idle_b', 'front',
+        'walk1', 'walk2', 'walk3', 'run1', 'run2',
+        'jump', 'jump_b', 'jump_mid', 'crouch', 'happy'
     ],
     girl: [
         'idle', 'idle_b', 'front',
-        'walk1', 'walk2', 'run3', 'run_a', 'run_b',
-        'jump', 'jump_b', 'jump_start', 'jump_mid', 'jump_land',
-        'crouch', 'happy', 'bag_adj', 'sheet_side', 'sheet_front'
+        'walk1', 'walk2', 'walk3', 'run1', 'run2',
+        'jump', 'jump_b', 'jump_mid', 'crouch', 'happy'
     ]
 };
 
@@ -35,7 +33,13 @@ export function preloadCharacters(scene) {
 }
 
 export function createCharacterAnims(scene) {
-    if (scene.anims.exists('boy-idle')) return;
+    // recria se já existia (hot reload / troca de cena)
+    for (const char of ['boy', 'girl']) {
+        for (const name of ['idle', 'run', 'jump', 'happy', 'front']) {
+            const key = `${char}-${name}`;
+            if (scene.anims.exists(key)) scene.anims.remove(key);
+        }
+    }
 
     const mk = (key, frames, frameRate, repeat = -1) => {
         scene.anims.create({
@@ -49,25 +53,24 @@ export function createCharacterAnims(scene) {
     for (const char of ['boy', 'girl']) {
         const t = (f) => charTex(char, f);
 
-        // idle: troca sutil entre dois lados
-        mk(`${char}-idle`, [t('idle'), t('idle_b'), t('idle'), t('sheet_side')], 2.2, -1);
+        // idle estável — só 2 frames muito parecidos de perfil
+        mk(`${char}-idle`, [t('idle'), t('idle_b')], 1.6, -1);
 
-        // corrida: walk cycle + frames de run em alta qualidade
+        // corrida: walk da sheet + run HQ (mesmo canvas → sem salto)
         mk(`${char}-run`, [
-            t('walk1'), t('walk2'), t('run3'),
-            t('run_a'), t('run_b'), t('walk2')
-        ], 11, -1);
+            t('walk1'), t('walk2'), t('walk3'),
+            t('run1'), t('run2'), t('walk2')
+        ], 10, -1);
 
-        // pulo: um frame estável (anim trocada por pose no ar)
-        mk(`${char}-jump`, [t('jump_mid'), t('jump'), t('jump_b')], 6, 0);
+        // jump anim (fallback; no ar usamos pose estática)
+        mk(`${char}-jump`, [t('jump_mid')], 1, -1);
 
-        // crouch / happy (vitória / extras)
-        mk(`${char}-crouch`, [t('crouch')], 1, -1);
-        mk(`${char}-happy`, [t('happy'), t('front'), t('happy')], 3, -1);
-        mk(`${char}-front`, [t('front'), t(char === 'boy' ? 'front2' : 'bag_adj'), t('front')], 2.5, -1);
+        mk(`${char}-happy`, [t('happy'), t('front'), t('happy')], 2.5, -1);
+        mk(`${char}-front`, [t('front'), t('happy'), t('front')], 2.2, -1);
     }
 }
 
-/** Escala visual padrão do personagem no mundo (sprite base ~128px de altura). */
-export const CHAR_DISPLAY_SCALE = 0.55;
-export const CHAR_BODY = { width: 28, height: 48, offsetX: 0, offsetY: 0 };
+/** Escala no mundo (sprite base 128px). */
+export const CHAR_DISPLAY_SCALE = 0.58;
+/** Hitbox fixa (não depende do frame). */
+export const CHAR_BODY = { width: 30, height: 50 };

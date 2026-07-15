@@ -20,37 +20,31 @@ export class MenuScene extends Phaser.Scene {
         this.selectedChar = save.character;
         Sound.setMuted(save.muted);
 
-        // fundo: sala escura iluminada pela TV
+        // fundo aquarela quente + TV
         const bg = this.add.graphics();
-        gradientStrips(bg, 0, 0, 960, 540, 0x16213e, 0x0f0f1e, 18);
+        gradientStrips(bg, 0, 0, 960, 540, 0xfff6e8, 0xe8c9a0, 32);
 
-        const glow = this.add.circle(480, 152, 120, 0x9be8ff, 0.14);
+        const glow = this.add.circle(480, 148, 130, 0xfff0b0, 0.22);
         this.tweens.add({
-            targets: glow, alpha: 0.05, scale: 1.25,
-            duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            targets: glow, alpha: 0.08, scale: 1.2,
+            duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
-        const tv = this.add.image(480, 152, 'tv_on').setScale(1.15);
+        const tv = this.add.image(480, 148, 'tv_on').setScale(1.15);
         this.tweens.add({
             targets: tv, scaleY: 1.18, duration: 1400,
             yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
 
-        for (let i = 0; i < 14; i++) {
-            const s = this.add.image(
-                60 + Math.random() * 840, 30 + Math.random() * 200, 'spark'
-            ).setScale(0.4 + Math.random() * 0.5).setAlpha(0.15);
-            this.tweens.add({
-                targets: s, alpha: 0.5, duration: 600 + Math.random() * 900,
-                yoyo: true, repeat: -1, delay: Math.random() * 1000
-            });
-        }
+        // plantas laterais
+        this.add.image(90, 520, 'plant').setOrigin(0.5, 1).setScale(1.2).setAlpha(0.9);
+        this.add.image(870, 520, 'plant').setOrigin(0.5, 1).setScale(1.15).setAlpha(0.9);
 
-        this.add.text(480, 52, 'EM BUSCA DA TV', {
-            fontSize: '52px', fontFamily: 'monospace', fontStyle: 'bold',
-            color: '#ffd23f', stroke: '#7a4a00', strokeThickness: 8
+        this.add.text(480, 48, 'EM BUSCA DA TV', {
+            fontSize: '50px', fontFamily: 'Georgia, serif', fontStyle: 'bold',
+            color: '#c47a20', stroke: '#fff6e8', strokeThickness: 6
         }).setOrigin(0.5);
-        this.add.text(480, 95, 'Uma aventura pela casa', {
-            fontSize: '17px', fontFamily: 'monospace', color: '#8ecae6'
+        this.add.text(480, 92, 'Uma aventura pela casa', {
+            fontSize: '17px', fontFamily: 'Georgia, serif', color: '#7a6550'
         }).setOrigin(0.5);
 
         this.add.text(480, 228, 'Quem vai procurar a TV?', {
@@ -108,22 +102,24 @@ export class MenuScene extends Phaser.Scene {
     }
 
     makeCharCard(x, y, charKey) {
-        const card = this.add.rectangle(x, y, 180, 148, 0x22223b)
+        const card = this.add.rectangle(x, y, 180, 148, 0xfffaf0)
+            .setStrokeStyle(3, 0xe0c8a0)
             .setInteractive({ useHandCursor: true });
 
-        const preview = this.add.sprite(x, y + 28, charTex(charKey, 'front'))
+        // preview de frente — só front/happy (nunca mistura perfil no menu)
+        const preview = this.add.sprite(x, y + 30, charTex(charKey, 'front'))
             .setOrigin(0.5, 1)
-            .setScale(CHAR_DISPLAY_SCALE * 1.35);
+            .setScale(CHAR_DISPLAY_SCALE * 1.25);
         preview.play(`${charKey}-front`);
 
         this.tweens.add({
-            targets: preview, y: y + 22,
-            duration: 900 + Math.random() * 200,
+            targets: preview, y: y + 24,
+            duration: 1000 + Math.random() * 200,
             yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
 
         this.add.text(x, y + 58, CHARACTERS[charKey].label, {
-            fontSize: '17px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff'
+            fontSize: '16px', fontFamily: 'Georgia, serif', fontStyle: 'bold', color: '#6b5344'
         }).setOrigin(0.5);
 
         card.on('pointerdown', () => {
@@ -133,16 +129,16 @@ export class MenuScene extends Phaser.Scene {
             this.refreshCharCards();
         });
         card.on('pointerover', () => {
-            if (this.selectedChar !== charKey) card.setFillStyle(0x2e2e52);
+            if (this.selectedChar !== charKey) card.setFillStyle(0xfff0d8);
             this.tweens.add({
-                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.48,
+                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.35,
                 duration: 140, ease: 'Back.easeOut'
             });
         });
         card.on('pointerout', () => {
             this.refreshCharCards();
             this.tweens.add({
-                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.35,
+                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.25,
                 duration: 140, ease: 'Quad.easeOut'
             });
         });
@@ -153,9 +149,9 @@ export class MenuScene extends Phaser.Scene {
     refreshCharCards() {
         for (const [key, { card }] of Object.entries(this.charCards)) {
             if (key === this.selectedChar) {
-                card.setFillStyle(0x2a4494).setStrokeStyle(4, 0xffd23f);
+                card.setFillStyle(0xfff4d0).setStrokeStyle(4, 0xe8a020);
             } else {
-                card.setFillStyle(0x22223b).setStrokeStyle(2, 0x44446a);
+                card.setFillStyle(0xfffaf0).setStrokeStyle(3, 0xe0c8a0);
             }
         }
     }
