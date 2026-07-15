@@ -137,45 +137,83 @@ export class GameScene extends Phaser.Scene {
     // ---------- construção da fase ----------
 
     createBackground() {
-        // parede aquarela (muitas faixas = degradê suave)
-        const bg = this.add.graphics().setScrollFactor(0).setDepth(-30);
-        gradientStrips(bg, 0, 0, 960, 540, this.theme.wallTop, this.theme.wallBottom, 36);
+        const th = this.theme;
 
-        // faixa de luz do teto
-        const light = this.add.graphics().setScrollFactor(0).setDepth(-29);
-        light.fillStyle(0xffffff, 0.12);
-        light.fillEllipse(480, -20, 900, 160);
+        // parede aquarela profunda
+        const bg = this.add.graphics().setScrollFactor(0).setDepth(-40);
+        gradientStrips(bg, 0, 0, 960, 540, th.wallTop, th.wallBottom, 40);
 
-        // papel de parede floral bem sutil
-        this.wallpaper = this.add.tileSprite(480, 250, 960, 420, 'wallpaper')
-            .setScrollFactor(0).setDepth(-25).setAlpha(0.14);
+        // luz do teto + vinheta suave nas bordas
+        const light = this.add.graphics().setScrollFactor(0).setDepth(-39);
+        light.fillStyle(0xffffff, 0.14);
+        light.fillEllipse(480, -10, 980, 180);
+        light.fillStyle(0x000000, 0.06);
+        light.fillRect(0, 0, 40, 540);
+        light.fillRect(920, 0, 40, 540);
 
-        // rodapé
-        this.add.tileSprite(480, 470, 960, 16, 'wainscot')
-            .setScrollFactor(0).setDepth(-24).setAlpha(0.5);
+        // papel de parede
+        this.wallpaper = this.add.tileSprite(480, 240, 960, 380, 'wallpaper')
+            .setScrollFactor(0).setDepth(-35).setAlpha(0.16);
 
-        // janelas com luz dourada (parallax)
-        const winCover = (this.worldW - 960) * 0.35 + 960;
-        for (let x = 220; x < winCover; x += 460) {
-            this.add.image(x, 150, 'window')
-                .setScrollFactor(0.3).setDepth(-15).setAlpha(0.92).setScale(0.95);
-            // mancha de sol no chão
-            const sun = this.add.ellipse(x + 20, 420, 90, 24, 0xffe8a0, 0.12)
-                .setScrollFactor(0.35).setDepth(-14);
+        // faixa de meia-parede (wainscot alto)
+        this.add.rectangle(480, 400, 960, 120, th.wallBottom, 0.35)
+            .setScrollFactor(0).setDepth(-34);
+
+        // rodapé de madeira
+        this.add.tileSprite(480, 458, 960, 18, 'wainscot')
+            .setScrollFactor(0).setDepth(-33).setAlpha(0.85);
+
+        // chão de tábua (parallax lento)
+        this.floorDecor = this.add.tileSprite(480, 500, 960, 80, 'floorboard')
+            .setScrollFactor(0).setDepth(-32).setAlpha(0.35).setTint(th.floor || 0xc4a070);
+
+        // janelas + cortinas + manchas de sol
+        const winCover = (this.worldW - 960) * 0.4 + 960;
+        for (let x = 200; x < winCover; x += 420) {
+            this.add.image(x, 148, 'window')
+                .setScrollFactor(0.28).setDepth(-20).setAlpha(0.95).setScale(0.9);
+            // cortinas dos lados
+            this.add.image(x - 58, 160, 'curtain')
+                .setScrollFactor(0.28).setDepth(-19).setAlpha(0.75).setScale(0.85);
+            this.add.image(x + 58, 160, 'curtain')
+                .setScrollFactor(0.28).setDepth(-19).setAlpha(0.75).setScale(0.85)
+                .setFlipX(true);
+            const sun = this.add.ellipse(x + 30, 400, 110, 28, 0xffe8a0, 0.14)
+                .setScrollFactor(0.32).setDepth(-18);
             this.tweens.add({
-                targets: sun, alpha: 0.06, duration: 2200,
+                targets: sun, alpha: 0.06, scaleX: 1.08,
+                duration: 2600 + (x % 7) * 100,
                 yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
             });
         }
 
-        // móveis do cômodo (sem "quadros" hard-edged competindo com os sprites)
+        // móveis em camadas (mais densos, sombra no chão)
         const rand = this.seededRandom(this.levelIndex * 1000 + 7);
-        const decorCover = (this.worldW - 960) * 0.55 + 960;
-        for (let x = 160; x < decorCover; x += 260 + Math.floor(rand() * 100)) {
-            const key = this.theme.decor[Math.floor(rand() * this.theme.decor.length)];
+        const decorCover = (this.worldW - 960) * 0.6 + 960;
+        for (let x = 120; x < decorCover; x += 200 + Math.floor(rand() * 90)) {
+            const key = th.decor[Math.floor(rand() * th.decor.length)];
+            const sc = 0.9 + rand() * 0.25;
+            // sombra elíptica sob o móvel
+            this.add.ellipse(x, this.worldH - TILE + 4, 50 * sc, 10, 0x000000, 0.12)
+                .setScrollFactor(0.48).setDepth(-12);
             this.add.image(x, this.worldH - TILE + 2, key)
-                .setOrigin(0.5, 1).setScrollFactor(0.5).setDepth(-10).setAlpha(0.88);
+                .setOrigin(0.5, 1).setScrollFactor(0.48).setDepth(-11)
+                .setAlpha(0.9).setScale(sc);
         }
+
+        // poeira de luz flutuando
+        this.add.particles(0, 0, 'dust', {
+            x: { min: 0, max: this.worldW },
+            y: { min: 60, max: 360 },
+            speedX: { min: -8, max: 8 },
+            speedY: { min: -12, max: -3 },
+            lifespan: { min: 4000, max: 7000 },
+            alpha: { start: 0.35, end: 0 },
+            scale: { start: 0.5, end: 0.15 },
+            frequency: 280,
+            blendMode: 'ADD',
+            tint: [0xffffff, 0xfff3c0, 0xd0e8ff]
+        }).setDepth(-8).setScrollFactor(0.2);
     }
 
     seededRandom(seed) {
@@ -475,10 +513,14 @@ export class GameScene extends Phaser.Scene {
         this.camLookX = Phaser.Math.Linear(this.camLookX, lookTarget, 1 - Math.exp(-6 * (delta / 1000)));
         this.cameras.main.setFollowOffset(-this.camLookX, 0);
 
-        // parallax do papel de parede (acompanha o scroll com atraso)
+        // parallax de camadas de fundo
+        const scr = this.cameras.main.scrollX;
         if (this.wallpaper) {
-            this.wallpaper.tilePositionX = this.cameras.main.scrollX * 0.12;
-            this.wallpaper.tilePositionY = this.cameras.main.scrollY * 0.06;
+            this.wallpaper.tilePositionX = scr * 0.1;
+            this.wallpaper.tilePositionY = this.cameras.main.scrollY * 0.05;
+        }
+        if (this.floorDecor) {
+            this.floorDecor.tilePositionX = scr * 0.18;
         }
 
         // caiu do mundo

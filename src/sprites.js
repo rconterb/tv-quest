@@ -4,17 +4,16 @@ export const CHARACTERS = {
     girl: { label: 'MENINA' }
 };
 
-// Apenas frames usados no jogo (todos no mesmo tamanho)
 const FRAMES = {
     boy: [
         'idle', 'idle_b', 'front',
         'walk1', 'walk2', 'walk3', 'run1', 'run2',
-        'jump', 'jump_b', 'jump_mid', 'crouch', 'happy'
+        'jump', 'jump_b', 'jump_mid', 'happy'
     ],
     girl: [
         'idle', 'idle_b', 'front',
         'walk1', 'walk2', 'walk3', 'run1', 'run2',
-        'jump', 'jump_b', 'jump_mid', 'crouch', 'happy'
+        'jump', 'jump_b', 'jump_mid', 'happy'
     ]
 };
 
@@ -33,7 +32,6 @@ export function preloadCharacters(scene) {
 }
 
 export function createCharacterAnims(scene) {
-    // recria se já existia (hot reload / troca de cena)
     for (const char of ['boy', 'girl']) {
         for (const name of ['idle', 'run', 'jump', 'happy', 'front']) {
             const key = `${char}-${name}`;
@@ -46,31 +44,29 @@ export function createCharacterAnims(scene) {
             key,
             frames: frames.map((f) => ({ key: f })),
             frameRate,
-            repeat
+            repeat,
+            skipMissedFrames: true
         });
     };
 
     for (const char of ['boy', 'girl']) {
         const t = (f) => charTex(char, f);
 
-        // idle estável — só 2 frames muito parecidos de perfil
-        mk(`${char}-idle`, [t('idle'), t('idle_b')], 1.6, -1);
+        // idle bem lento (respiração visual)
+        mk(`${char}-idle`, [t('idle'), t('idle_b')], 1.4, -1);
 
-        // corrida: só frames de perfil já normalizados p/ a direita
-        // ordem: passada (sheet) + corrida HQ
+        // corrida fluida: ciclo equilibrado HQ + walk
         mk(`${char}-run`, [
-            t('walk1'), t('run1'), t('walk2'), t('run2'), t('walk3')
-        ], 10, -1);
+            t('walk1'), t('run1'), t('walk2'), t('run2'), t('walk3'), t('run1')
+        ], 11, -1);
 
-        // jump (pose estática no ar via setTexture; anim é fallback)
         mk(`${char}-jump`, [t('jump_mid')], 1, -1);
-
         mk(`${char}-happy`, [t('happy'), t('front'), t('happy')], 2.5, -1);
         mk(`${char}-front`, [t('front'), t('happy'), t('front')], 2.2, -1);
     }
 }
 
-/** Escala no mundo (sprite base 128px). */
-export const CHAR_DISPLAY_SCALE = 0.58;
-/** Hitbox fixa (não depende do frame). */
-export const CHAR_BODY = { width: 30, height: 50 };
+/** Escala no mundo — personagem bem legível (~100px de altura). */
+export const CHAR_DISPLAY_SCALE = 0.82;
+/** Hitbox proporcional ao tamanho visual. */
+export const CHAR_BODY = { width: 36, height: 64 };

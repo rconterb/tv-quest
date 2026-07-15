@@ -32,15 +32,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         const bh = CHAR_BODY.height;
         this.body.setSize(bw, bh);
         this.body.setOffset((128 - bw) / 2, 128 - bh - 4);
-        this.body.setDragX(2000);
-        this.body.setMaxVelocity(250, 900);
+        this.body.setDragX(1800);
+        this.body.setMaxVelocity(260, 920);
 
         this.animTime = 0;
         this.facing = 1;
         this.squash = { x: 1, y: 1 };
+        this.bob = 1; // scaleY extra de respiração / passo
         this.stepMuted = false;
         this.currentAnim = null;
         this.airFrame = null;
+        this.airPhase = 'mid'; // hysteresis do pulo
+        this.runFrameRate = 11;
 
         this.playAnim('idle');
         this.applyFacing();
@@ -53,19 +56,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.currentAnim = key;
         this.airFrame = null;
         this.anims.play(key, true);
-        // re-aplica flip depois de trocar anim (Phaser às vezes reseta)
         this.applyFacing();
     }
 
     applyFacing() {
         this.setFlipX(this.facing < 0);
-        this.setScale(
-            this.baseScale * Math.abs(this.squash.x),
-            this.baseScale * this.squash.y
-        );
+        const sx = this.baseScale * Math.abs(this.squash.x);
+        const sy = this.baseScale * this.squash.y * this.bob;
+        this.setScale(sx, sy);
     }
 
-    squashTo(sx, sy, dur = 90) {
+    squashTo(sx, sy, dur = 100) {
         this.scene.tweens.killTweensOf(this.squash);
         this.scene.tweens.add({
             targets: this.squash,
@@ -73,53 +74,71 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             y: sy,
             duration: dur,
             yoyo: true,
-            ease: 'Quad.easeOut',
+            ease: 'Sine.easeInOut',
             onUpdate: () => this.applyFacing()
         });
     }
 
     setAirPose(frame) {
-        if (this.airFrame === frame) return;
+        if (this.airFrame === frame) {
+            this.applyFacing();
+            return;
+        }
         this.airFrame = frame;
         this.currentAnim = `${this.charKey}-jump`;
         this.anims.stop();
         this.setTexture(charTex(this.charKey, frame));
-        this.applyFacing(); // mantém direção após setTexture
+        this.applyFacing();
     }
 
     updateAnim(time, delta) {
         if (!this.body) return;
 
+        const dt = Math.min(delta, 40) / 1000;
         const vx = this.body.velocity.x;
         const vy = this.body.velocity.y;
         const speed = Math.abs(vx);
-        const isMoving = speed > 18;
+        const isMoving = speed > 16;
         const isGrounded = this.body.touching.down || this.body.blocked.down;
 
-        if (vx > 24) this.facing = 1;
-        else if (vx < -24) this.facing = -1;
+        if (vx > 22) this.facing = 1;
+        else if (vx < -22) this.facing = -1;
 
+        // bob suave (respiração / passo) — não mexe em body.y
+        let targetBob = 1;
         if (!isGrounded) {
-            // um frame estável por “fase” do pulo (evita trocar textura a cada tick)
-            let frame = 'jump_mid';
-            if (vy < -100) frame = 'jump_b';
-            else if (vy > 180) frame = 'jump';
+            targetBob = 1.02;
+            // hysteresis: evita trocar frame a cada frame de física
+            let phase = this.airPhase;
+            if (vy < -120) phase = 'up';
+            else if (vy > 200) phase = 'down';
+            else if (vy > -40 && vy < 80) phase = 'mid';
+            this.airPhase = phase;
+            const frame = phase === 'up' ? 'jump_b' : (phase === 'down' ? 'jump' : 'jump_mid');
             this.setAirPose(frame);
         } else if (isMoving) {
             this.playAnim('run');
             const prev = this.animTime;
-            this.animTime += delta * 0.011 * Phaser.Math.Clamp(speed / 200, 0.45, 1.15);
-            if (!this.stepMuted && Math.floor(prev / 200) !== Math.floor(this.animTime / 200)) {
+            const pace = Phaser.Math.Clamp(speed / 210, 0.55, 1.25);
+            this.animTime += delta * 0.01 * pace;
+            // bob de passo sincronizado
+            targetBob = 1 + Math.abs(Math.sin(this.animTime * 0.9)) * 0.035;
+            if (!this.stepMuted && Math.floor(prev / 190) !== Math.floor(this.animTime / 190)) {
                 Sound.step();
             }
-            if (this.anims.currentAnim) {
-                this.anims.msPerFrame = Phaser.Math.Clamp(1000 / (7 + speed / 28), 60, 130);
+            // frameRate estável (só ajusta de leve)
+            const fr = Phaser.Math.Clamp(9 + speed / 40, 9, 14);
+            if (Math.abs(fr - this.runFrameRate) > 0.8 && this.anims.currentAnim) {
+                this.runFrameRate = fr;
+                this.anims.msPerFrame = 1000 / fr;
             }
         } else {
             this.playAnim('idle');
+            this.animTime += delta * 0.003;
+            targetBob = 1 + Math.sin(this.animTime) * 0.025;
         }
 
-        // sempre no fim: garante flip correto (anims/setTexture não invertem arte)
+        this.bob = Phaser.Math.Linear(this.bob, targetBob, 1 - Math.exp(-12 * dt));
         this.applyFacing();
     }
 }
@@ -130,12 +149,13 @@ export class Robot extends Phaser.Physics.Arcade.Sprite {
         scene.add.existing(this);
         scene.physics.add.existing(this);
 
+        this.setScale(1.15);
         this.body.setSize(28, 24);
         this.body.setOffset(3, 7);
         this.minX = minX;
         this.maxX = maxX;
         this.dir = -1;
-        this.speed = 55;
+        this.speed = 58;
         this.squished = false;
 
         scene.tweens.add({

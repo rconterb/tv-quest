@@ -107,13 +107,13 @@ export class MenuScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true });
 
         // preview de frente — só front/happy (nunca mistura perfil no menu)
-        const preview = this.add.sprite(x, y + 30, charTex(charKey, 'front'))
+        const preview = this.add.sprite(x, y + 36, charTex(charKey, 'front'))
             .setOrigin(0.5, 1)
-            .setScale(CHAR_DISPLAY_SCALE * 1.25);
+            .setScale(CHAR_DISPLAY_SCALE * 0.95);
         preview.play(`${charKey}-front`);
 
         this.tweens.add({
-            targets: preview, y: y + 24,
+            targets: preview, y: y + 30,
             duration: 1000 + Math.random() * 200,
             yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
@@ -131,14 +131,14 @@ export class MenuScene extends Phaser.Scene {
         card.on('pointerover', () => {
             if (this.selectedChar !== charKey) card.setFillStyle(0xfff0d8);
             this.tweens.add({
-                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.35,
+                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.05,
                 duration: 140, ease: 'Back.easeOut'
             });
         });
         card.on('pointerout', () => {
             this.refreshCharCards();
             this.tweens.add({
-                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.25,
+                targets: preview, scale: CHAR_DISPLAY_SCALE * 0.95,
                 duration: 140, ease: 'Quad.easeOut'
             });
         });
