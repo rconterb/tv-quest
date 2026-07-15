@@ -1,24 +1,29 @@
 import { levels } from '../levels.js';
 import { generateTextures, gradientStrips } from '../textures.js';
-import { createCharacterParts, CHARACTERS } from '../objects.js';
+import { CHARACTERS } from '../objects.js';
+import { preloadCharacters, createCharacterAnims, charTex, CHAR_DISPLAY_SCALE } from '../sprites.js';
 import { Sound, Music } from '../audio.js';
 import { loadSave, updateSave } from '../save.js';
 
 export class MenuScene extends Phaser.Scene {
     constructor() { super('MenuScene'); }
 
-    preload() { generateTextures(this); }
+    preload() {
+        preloadCharacters(this);
+    }
 
     create() {
+        generateTextures(this);
+        createCharacterAnims(this);
+
         const save = loadSave();
         this.selectedChar = save.character;
         Sound.setMuted(save.muted);
 
         // fundo: sala escura iluminada pela TV
         const bg = this.add.graphics();
-        gradientStrips(bg, 0, 0, 960, 540, 0x16213e, 0x0f0f1e, 14);
+        gradientStrips(bg, 0, 0, 960, 540, 0x16213e, 0x0f0f1e, 18);
 
-        // brilho da TV
         const glow = this.add.circle(480, 152, 120, 0x9be8ff, 0.14);
         this.tweens.add({
             targets: glow, alpha: 0.05, scale: 1.25,
@@ -30,7 +35,6 @@ export class MenuScene extends Phaser.Scene {
             yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
 
-        // estrelinhas piscando no fundo
         for (let i = 0; i < 14; i++) {
             const s = this.add.image(
                 60 + Math.random() * 840, 30 + Math.random() * 200, 'spark'
@@ -49,17 +53,15 @@ export class MenuScene extends Phaser.Scene {
             fontSize: '17px', fontFamily: 'monospace', color: '#8ecae6'
         }).setOrigin(0.5);
 
-        // ----- personagens -----
-        this.add.text(480, 236, 'Quem vai procurar a TV?', {
+        this.add.text(480, 228, 'Quem vai procurar a TV?', {
             fontSize: '19px', fontFamily: 'monospace', color: '#ffffff'
         }).setOrigin(0.5);
 
         this.charCards = {};
-        this.makeCharCard(370, 316, 'boy');
-        this.makeCharCard(590, 316, 'girl');
+        this.makeCharCard(370, 318, 'boy');
+        this.makeCharCard(590, 318, 'girl');
         this.refreshCharCards();
 
-        // ----- seleção de fases -----
         this.add.text(480, 412, 'Escolha a fase:', {
             fontSize: '17px', fontFamily: 'monospace', color: '#ffffff'
         }).setOrigin(0.5);
@@ -72,7 +74,6 @@ export class MenuScene extends Phaser.Scene {
             fontSize: '12px', fontFamily: 'monospace', color: '#666688'
         }).setOrigin(0.5);
 
-        // mudo geral (música + efeitos)
         this.muteBtn = this.add.text(934, 24, save.muted ? '🔇' : '🔊', { fontSize: '22px' })
             .setOrigin(0.5).setInteractive({ useHandCursor: true });
         this.muteBtn.on('pointerdown', () => {
@@ -82,7 +83,6 @@ export class MenuScene extends Phaser.Scene {
             this.muteBtn.setText(muted ? '🔇' : '🔊');
         });
 
-        // opção: jogar com ou sem música
         const musicOn = save.music !== false;
         this.musicBtn = this.add.text(26, 24, `♪ Música: ${musicOn ? 'SIM' : 'NÃO'}`, {
             fontSize: '16px', fontFamily: 'monospace', fontStyle: 'bold',
@@ -101,7 +101,6 @@ export class MenuScene extends Phaser.Scene {
             else Music.stop();
         });
 
-        // prepara o áudio na primeira interação (regra de autoplay dos navegadores)
         this.input.once('pointerdown', () => {
             Sound.init();
             Sound.resume();
@@ -112,30 +111,13 @@ export class MenuScene extends Phaser.Scene {
         const card = this.add.rectangle(x, y, 180, 148, 0x22223b)
             .setInteractive({ useHandCursor: true });
 
-        const preview = this.add.container(x, y - 12);
-        const { parts, all } = createCharacterParts(this, charKey);
-        preview.add(all);
-        preview.setScale(1.55);
+        const preview = this.add.sprite(x, y + 28, charTex(charKey, 'front'))
+            .setOrigin(0.5, 1)
+            .setScale(CHAR_DISPLAY_SCALE * 1.35);
+        preview.play(`${charKey}-front`);
 
-        // idle fluido no menu: respiração + balanço dos braços
-        const idlePhase = { t: Math.random() * Math.PI * 2 };
         this.tweens.add({
-            targets: idlePhase, t: idlePhase.t + Math.PI * 2,
-            duration: 2200, repeat: -1, ease: 'Linear',
-            onUpdate: () => {
-                const b = Math.sin(idlePhase.t);
-                const b2 = Math.sin(idlePhase.t * 0.5);
-                parts.torso.y = -2 + b * 1.2;
-                parts.head.y = parts.headBaseY + b * 1.2;
-                parts.head.angle = b2 * 2;
-                parts.leftArm.angle = 8 + b * 6;
-                parts.rightArm.angle = -8 - b * 6;
-                parts.leftArm.y = -10 + b * 1.0;
-                parts.rightArm.y = -10 + b * 1.0;
-            }
-        });
-        this.tweens.add({
-            targets: preview, y: y - 16,
+            targets: preview, y: y + 22,
             duration: 900 + Math.random() * 200,
             yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
@@ -152,18 +134,24 @@ export class MenuScene extends Phaser.Scene {
         });
         card.on('pointerover', () => {
             if (this.selectedChar !== charKey) card.setFillStyle(0x2e2e52);
-            this.tweens.add({ targets: preview, scale: 1.68, duration: 140, ease: 'Back.easeOut' });
+            this.tweens.add({
+                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.48,
+                duration: 140, ease: 'Back.easeOut'
+            });
         });
         card.on('pointerout', () => {
             this.refreshCharCards();
-            this.tweens.add({ targets: preview, scale: 1.55, duration: 140, ease: 'Quad.easeOut' });
+            this.tweens.add({
+                targets: preview, scale: CHAR_DISPLAY_SCALE * 1.35,
+                duration: 140, ease: 'Quad.easeOut'
+            });
         });
 
-        this.charCards[charKey] = card;
+        this.charCards[charKey] = { card, preview };
     }
 
     refreshCharCards() {
-        for (const [key, card] of Object.entries(this.charCards)) {
+        for (const [key, { card }] of Object.entries(this.charCards)) {
             if (key === this.selectedChar) {
                 card.setFillStyle(0x2a4494).setStrokeStyle(4, 0xffd23f);
             } else {

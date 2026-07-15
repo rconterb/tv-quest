@@ -1,190 +1,132 @@
-// Personagens e inimigos
+// Personagens (sprites) e inimigos
 import { Sound } from './audio.js';
+import {
+    CHAR_BODY,
+    CHAR_DISPLAY_SCALE,
+    CHARACTERS,
+    charTex,
+    createCharacterAnims
+} from './sprites.js';
 
-export const CHARACTERS = {
-    boy: { label: 'MENINO' },
-    girl: { label: 'MENINA' }
-};
+export { CHARACTERS };
 
-// Interpolação suave (frame-rate independent)
-function damp(current, target, lambda, dt) {
-    return Phaser.Math.Linear(current, target, 1 - Math.exp(-lambda * dt));
-}
-
-// Monta as partes do corpo estilo Ghibli (Player + prévias do menu)
-export function createCharacterParts(scene, charKey) {
-    const isBoy = charKey !== 'girl';
-    const img = (x, y, key, originY = 0.5) =>
-        scene.add.image(x, y, key).setOrigin(0.5, originY);
-
-    const parts = {};
-    // ordem de profundidade: mochila atrás → pernas → torso → braços → cabeça
-    // originY = 0: pivot no ombro / quadril para rotação natural
-    parts.backpack = img(-10, -4, 'backpack');
-    parts.leftArm = img(-12, -11, isBoy ? 'arm_boy' : 'arm_girl', 0);
-    parts.leftLeg = img(-5, 7, isBoy ? 'leg_boy' : 'leg_girl', 0);
-    parts.rightLeg = img(5, 7, isBoy ? 'leg_boy' : 'leg_girl', 0);
-    parts.torso = img(0, -2, isBoy ? 'torso_boy' : 'torso_girl');
-    parts.headBaseY = isBoy ? -26 : -30;
-    parts.head = img(0, parts.headBaseY, isBoy ? 'head_boy' : 'head_girl');
-    parts.rightArm = img(12, -11, isBoy ? 'arm_boy' : 'arm_girl', 0);
-
-    const all = [
-        parts.backpack,
-        parts.leftArm, parts.leftLeg, parts.rightLeg,
-        parts.torso, parts.head, parts.rightArm
-    ];
-    return { parts, all };
-}
-
-export class Player extends Phaser.GameObjects.Container {
+/**
+ * Player baseado em spritesheet/frames.
+ * Arte de perfil olha para a ESQUERDA → flipX quando facing = +1 (direita).
+ */
+export class Player extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, charKey) {
-        super(scene, x, y);
+        createCharacterAnims(scene);
+        const key = charKey === 'girl' ? 'girl' : 'boy';
+        super(scene, x, y, charTex(key, 'idle'));
+
+        this.charKey = key;
         scene.add.existing(this);
         scene.physics.add.existing(this);
 
-        const { parts, all } = createCharacterParts(scene, charKey);
-        this.parts = parts;
-        this.add(all);
+        this.baseScale = CHAR_DISPLAY_SCALE;
+        this.setScale(this.baseScale);
+        this.setOrigin(0.5, 1); // pés no chão
 
-        this.body.setSize(24, 52);
-        this.body.setOffset(-12, -26);
+        const bw = CHAR_BODY.width;
+        const bh = CHAR_BODY.height;
+        this.body.setSize(bw, bh);
+        // origin 0.5,1 → offset do body relativo ao top-left do frame
+        this.body.setOffset(
+            (this.width - bw) / 2,
+            this.height - bh - 2
+        );
         this.body.setDragX(1800);
-        this.body.setMaxVelocity(240, 900);
+        this.body.setMaxVelocity(250, 900);
 
         this.animTime = 0;
-        // facing: +1 = direita, -1 = esquerda (art desenhada de frente; espelha no eixo X)
-        this.facing = 1;
+        this.facing = 1; // +1 direita, -1 esquerda
         this.squash = { x: 1, y: 1 };
         this.stepMuted = false;
+        this.currentAnim = null;
 
-        // estado de pose atual (para blend suave entre idle / walk / air)
-        this.pose = {
-            leftLeg: 0, rightLeg: 0,
-            leftArm: 0, rightArm: 0,
-            torso: 0, head: 0, bob: 0, bag: 0
-        };
+        this.playAnim('idle');
+        this.applyFacing();
+    }
+
+    playAnim(name) {
+        const key = `${this.charKey}-${name}`;
+        if (this.currentAnim === key) return;
+        if (!this.anims.animationManager.exists(key)) return;
+        this.currentAnim = key;
+        this.play(key, true);
+    }
+
+    applyFacing() {
+        // sprites de perfil olham para a esquerda
+        this.setFlipX(this.facing > 0);
+        this.setScale(
+            this.baseScale * Math.abs(this.squash.x),
+            this.baseScale * this.squash.y
+        );
     }
 
     squashTo(sx, sy, dur = 90) {
-        // squash.x sempre positivo — a direção fica só em this.facing
         this.scene.tweens.killTweensOf(this.squash);
         this.scene.tweens.add({
             targets: this.squash,
-            x: Math.abs(sx), y: sy,
+            x: Math.abs(sx),
+            y: sy,
             duration: dur,
             yoyo: true,
-            ease: 'Quad.easeOut'
+            ease: 'Quad.easeOut',
+            onUpdate: () => this.applyFacing()
         });
+    }
+
+    refreshBody() {
+        if (!this.body) return;
+        const bw = CHAR_BODY.width;
+        const bh = CHAR_BODY.height;
+        // origin 0.5,1 — body centrado nos pés
+        this.body.setSize(bw, bh);
+        this.body.setOffset((this.width - bw) / 2, this.height - bh - 2);
     }
 
     updateAnim(time, delta) {
         if (!this.body) return;
 
-        const dt = Math.min(delta, 50) / 1000; // segundos, cap de lag
         const vx = this.body.velocity.x;
         const vy = this.body.velocity.y;
         const speed = Math.abs(vx);
         const isMoving = speed > 12;
         const isGrounded = this.body.touching.down || this.body.blocked.down;
 
-        // direção do olhar acompanha o movimento (nunca de costas)
         if (vx > 8) this.facing = 1;
         else if (vx < -8) this.facing = -1;
-
-        // scaleX = |squash| * facing — garante que squash nunca inverta o sentido
-        const sx = Math.abs(this.squash.x) * this.facing;
-        const sy = this.squash.y;
-        this.setScale(sx, sy);
-
-        // alvos da pose
-        let tL = 0, tR = 0, tLA = 0, tRA = 0, tTorso = 0, tHead = 0, tBob = 0, tBag = 0;
-        // velocidade de blend: no ar muda mais rápido (resposta), no chão mais suave
-        let blend = isGrounded ? 14 : 18;
+        this.applyFacing();
 
         if (!isGrounded) {
-            // pose aérea reage à velocidade vertical (subindo vs caindo) — refs de jump
-            const climb = Phaser.Math.Clamp(-vy / 500, -1, 1);
-            tL = -28 - climb * 16;
-            tR = 20 + climb * 12;
-            tLA = -130 - climb * 20;
-            tRA = 130 + climb * 20;
-            tTorso = 5 + climb * 3;
-            tHead = -5 - climb * 2;
-            tBob = climb * 1.8;
-            tBag = 6 + climb * 4; // mochila sobe um pouco no ar
-            blend = 16;
-        } else if (isMoving) {
-            // ciclo de corrida proporcional à velocidade (mais fluido em qualquer pace)
-            const pace = Phaser.Math.Clamp(speed / 200, 0.35, 1.15);
-            const prevPhase = this.animTime;
-            this.animTime += delta * 0.014 * pace;
-            const s = Math.sin(this.animTime);
-            const c = Math.cos(this.animTime);
-
-            // passo nos cruzamentos de zero do seno
-            if (!this.stepMuted) {
-                const prevSin = Math.sin(prevPhase);
-                if ((prevSin < 0 && s >= 0) || (prevSin > 0 && s <= 0)) Sound.step();
+            // pose aérea estática (melhor leitura que ciclar frames)
+            if (this.currentAnim !== `${this.charKey}-jump`) {
+                this.currentAnim = `${this.charKey}-jump`;
+                this.anims.stop();
             }
-
-            // pernas e braços em fases opostas (ciclo clássico de caminhada)
-            // ângulos em espaço local; o flip do container cuida da direção
-            const arm = Math.sin(this.animTime - 0.25);
-            tL = s * 48 * pace;
-            tR = -s * 48 * pace;
-            tLA = -arm * 42 * pace;
-            tRA = arm * 42 * pace;
-            // leve inclinação para a frente do movimento
-            tTorso = 3 + Math.abs(s) * 2;
-            tHead = s * 3.5;
-            tBob = Math.abs(c) * 3.0 * pace - 1.0;
-            tBag = s * 4 * pace; // balanço da mochila
-            blend = 22;
+            const frame = vy < -60 ? 'jump_b' : (vy > 120 ? 'jump' : 'jump_mid');
+            const tex = charTex(this.charKey, frame);
+            if (this.texture.key !== tex) this.setTexture(tex);
+        } else if (isMoving) {
+            this.playAnim('run');
+            const prev = this.animTime;
+            this.animTime += delta * 0.012 * Phaser.Math.Clamp(speed / 200, 0.4, 1.2);
+            if (!this.stepMuted) {
+                if (Math.floor(prev / 180) !== Math.floor(this.animTime / 180)) {
+                    Sound.step();
+                }
+            }
+            if (this.anims.currentAnim) {
+                this.anims.msPerFrame = Phaser.Math.Clamp(1000 / (8 + speed / 30), 55, 120);
+            }
         } else {
-            // parado — respiração sutil e leve balanço
-            this.animTime += delta * 0.0038;
-            const breathe = Math.sin(this.animTime);
-            const breathe2 = Math.sin(this.animTime * 0.5);
-            tL = 2;
-            tR = -2;
-            tLA = 8 + breathe * 5;
-            tRA = -8 - breathe * 5;
-            tTorso = breathe * 0.7;
-            tHead = breathe2 * 1.4;
-            tBob = breathe * 1.0;
-            tBag = breathe * 1.2;
-            blend = 10;
+            this.playAnim('idle');
         }
 
-        // blend suave das poses (sem "snap" ao mudar de estado)
-        const p = this.pose;
-        p.leftLeg = damp(p.leftLeg, tL, blend, dt);
-        p.rightLeg = damp(p.rightLeg, tR, blend, dt);
-        p.leftArm = damp(p.leftArm, tLA, blend, dt);
-        p.rightArm = damp(p.rightArm, tRA, blend, dt);
-        p.torso = damp(p.torso, tTorso, blend, dt);
-        p.head = damp(p.head, tHead, blend, dt);
-        p.bob = damp(p.bob, tBob, blend * 1.2, dt);
-        p.bag = damp(p.bag, tBag, blend * 0.9, dt);
-
-        const parts = this.parts;
-        parts.leftLeg.angle = p.leftLeg;
-        parts.rightLeg.angle = p.rightLeg;
-        parts.leftArm.angle = p.leftArm;
-        parts.rightArm.angle = p.rightArm;
-        parts.torso.angle = p.torso;
-        parts.head.angle = p.head;
-        parts.torso.y = -2 + p.bob;
-        parts.head.y = parts.headBaseY + p.bob;
-        parts.leftArm.y = -11 + p.bob * 0.85;
-        parts.rightArm.y = -11 + p.bob * 0.85;
-        parts.leftLeg.y = 7 + p.bob * 0.35;
-        parts.rightLeg.y = 7 + p.bob * 0.35;
-        // mochila acompanha o tronco e balança um pouco
-        parts.backpack.y = -4 + p.bob * 0.7;
-        parts.backpack.angle = p.bag * 0.35;
-        parts.backpack.x = -10 + p.bag * 0.08;
+        this.refreshBody();
     }
 }
 
@@ -202,7 +144,6 @@ export class Robot extends Phaser.Physics.Arcade.Sprite {
         this.speed = 55;
         this.squished = false;
 
-        // balanço lateral + “respiração” de escala (sem mexer em Y — evita luta com a física)
         scene.tweens.add({
             targets: this, angle: { from: -3.5, to: 3.5 },
             duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'

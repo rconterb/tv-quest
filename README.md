@@ -1,8 +1,8 @@
 # Em Busca da TV 📺
 
-Jogo de plataforma 2D em pixel art feito com [Phaser 3](https://phaser.io/). A TV sumiu! Explore os cômodos da casa — sala, quarto, cozinha, corredor, escritório e sótão — desviando de brinquedos, pisando em robôs e coletando estrelas até encontrar a TV lendária.
+Jogo de plataforma 2D feito com [Phaser 3](https://phaser.io/). A TV sumiu! Explore os cômodos da casa — sala, quarto, cozinha, corredor, escritório e sótão — desviando de brinquedos, pisando em robôs e coletando estrelas até encontrar a TV lendária.
 
-**Sem build e sem dependências**: Phaser vem por CDN e o código usa ES modules nativos. Todos os gráficos são pixel art procedural (gerados em código) e todos os sons/música são sintetizados com Web Audio — não há um único arquivo de imagem ou áudio no projeto.
+Personagens em **sprites estilo Ghibli** (arte embutida). Cenário, inimigos e UI ainda usam texturas procedurais + Web Audio sintetizado.
 
 ## Como jogar
 
@@ -18,13 +18,13 @@ Jogo de plataforma 2D em pixel art feito com [Phaser 3](https://phaser.io/). A T
 
 ## Conteúdo
 
-- Visual estilo Ghibli/chibi: contornos suaves, olhos grandes com brilho e cel shading
+- Personagens com sprites animados (idle / corrida / pulo) inspirados em Studio Ghibli
 - 10 fases com rolagem de câmera, ambientadas nos cômodos da casa
-- 2 personagens jogáveis: o menino e a menina de moletom amarelo da Colônia de Férias, mochila verde (ele de calça oliva e tênis azul; ela de calça floral e flor no cabelo)
+- 2 personagens jogáveis: o menino e a menina de moletom amarelo da Colônia de Férias, mochila verde
 - Inimigos patrulheiros, plataformas móveis, molas, buracos e escaladas
 - Física com *coyote time*, *jump buffering* e altura de pulo variável
 - Progresso salvo no navegador (fases desbloqueadas + estrelas por fase)
-- Música chiptune em loop com botão de mudo (o som pausa sozinho quando a aba perde o foco)
+- Música chiptune em loop com botão de mudo
 
 ## Jogar online
 
@@ -32,7 +32,7 @@ Jogo de plataforma 2D em pixel art feito com [Phaser 3](https://phaser.io/). A T
 
 ## Rodando localmente
 
-Precisa apenas de um servidor estático (ES modules não funcionam via `file://`):
+Precisa de um servidor estático (ES modules não funcionam via `file://`):
 
 ```
 python -m http.server 4173
@@ -45,13 +45,16 @@ Abra `http://localhost:4173`.
 
 ```
 index.html                  Página do jogo (canvas + Phaser via CDN)
+assets/chars/               Sprites PNG dos personagens (boy/girl)
+tools/build_sprites.py      Regenera PNGs a partir das refs (opcional)
 src/main.js                 Config do Phaser e registro das cenas
 src/levels.js               Dados das 10 fases + temas dos cômodos
-src/textures.js             Toda a pixel art procedural (blocos, TV, móveis, partículas...)
-src/objects.js              Player (animação esquelética) e Robot (inimigo)
-src/audio.js                Efeitos sonoros e música sintetizados (Web Audio)
+src/textures.js             Pixel art procedural do cenário
+src/sprites.js              Preload e animações dos personagens
+src/objects.js              Player (sprites) e Robot
+src/audio.js                Efeitos e música (Web Audio)
 src/save.js                 Progresso no localStorage
-src/scenes/MenuScene.js     Título, escolha de personagem e seleção de fases
+src/scenes/MenuScene.js     Título, escolha de personagem e fases
 src/scenes/GameScene.js     Gameplay
 src/scenes/VictoryScene.js  Tela final
 ```

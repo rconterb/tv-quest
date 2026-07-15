@@ -1,6 +1,7 @@
 import { levels, THEMES, TILE, ROWS } from '../levels.js';
 import { generateTextures, gradientStrips } from '../textures.js';
 import { Player, Robot } from '../objects.js';
+import { preloadCharacters, createCharacterAnims } from '../sprites.js';
 import { Sound, Music } from '../audio.js';
 import { loadSave, updateSave } from '../save.js';
 
@@ -29,9 +30,13 @@ export class GameScene extends Phaser.Scene {
         this.nextRunDust = 0;
     }
 
-    preload() { generateTextures(this); }
+    preload() {
+        preloadCharacters(this);
+    }
 
     create() {
+        generateTextures(this);
+        createCharacterAnims(this);
         const lvl = levels[this.levelIndex];
         this.theme = THEMES[lvl.theme];
         this.worldW = lvl.width * TILE;
@@ -235,7 +240,8 @@ export class GameScene extends Phaser.Scene {
                     }
                     case 'P':
                         this.spawnX = cx;
-                        this.spawnY = floorY - 34;
+                        // pés no chão (Player usa origin 0.5, 1)
+                        this.spawnY = floorY;
                         break;
                 }
             }
@@ -402,9 +408,9 @@ export class GameScene extends Phaser.Scene {
                         duration: 380, ease: 'Quad.easeOut',
                         onComplete: () => { if (!this.isDead) this.player.setAngle(0); }
                     });
-                    this.sparkEmitter.explode(6, this.player.x, this.player.y + 12);
+                    this.sparkEmitter.explode(6, this.player.x, this.player.y - 40);
                 } else {
-                    this.dustEmitter.explode(5, this.player.x, this.player.y + 24);
+                    this.dustEmitter.explode(5, this.player.x, this.player.y - 2);
                 }
             }
         }
@@ -420,7 +426,7 @@ export class GameScene extends Phaser.Scene {
         // aterrissagem: squash + poeira
         if (!this.wasGrounded && grounded && this.lastFallSpeed > 300) {
             this.player.squashTo(1.22, 0.78, 90);
-            this.dustEmitter.explode(7, this.player.x, this.player.y + 24);
+            this.dustEmitter.explode(7, this.player.x, this.player.y - 2);
             Sound.step();
         }
         this.wasGrounded = grounded;
@@ -428,7 +434,7 @@ export class GameScene extends Phaser.Scene {
 
         // poeirinha ao correr (mais densa conforme a velocidade)
         if (grounded && Math.abs(body.velocity.x) > 100 && time > this.nextRunDust) {
-            this.dustEmitter.explode(1, this.player.x - this.player.facing * 8, this.player.y + 24);
+            this.dustEmitter.explode(1, this.player.x - this.player.facing * 8, this.player.y - 2);
             this.nextRunDust = time + Phaser.Math.Clamp(180 - Math.abs(body.velocity.x) * 0.25, 90, 180);
         }
 

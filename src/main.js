@@ -8,9 +8,10 @@ const config = {
     width: 960,
     height: 540,
     parent: 'game-container',
-    pixelArt: true,
-    roundPixels: true, // evita subpixel shimmer em sprites pixel art
-    antialias: false,
+    // sprites Ghibli suaves (não pixel art)
+    pixelArt: false,
+    roundPixels: false,
+    antialias: true,
     fps: {
         target: 60,
         forceSetTimeOut: false
