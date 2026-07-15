@@ -11,23 +11,26 @@ function damp(current, target, lambda, dt) {
     return Phaser.Math.Linear(current, target, 1 - Math.exp(-lambda * dt));
 }
 
-// Monta as partes do corpo chibi (usado pelo Player e pelas prévias do menu)
+// Monta as partes do corpo estilo Ghibli (Player + prévias do menu)
 export function createCharacterParts(scene, charKey) {
     const isBoy = charKey !== 'girl';
     const img = (x, y, key, originY = 0.5) =>
         scene.add.image(x, y, key).setOrigin(0.5, originY);
 
     const parts = {};
+    // ordem de profundidade: mochila atrás → pernas → torso → braços → cabeça
     // originY = 0: pivot no ombro / quadril para rotação natural
-    parts.leftArm = img(-11, -10, isBoy ? 'arm_boy' : 'arm_girl', 0);
-    parts.leftLeg = img(-5, 6, isBoy ? 'leg_boy' : 'leg_girl', 0);
-    parts.rightLeg = img(5, 6, isBoy ? 'leg_boy' : 'leg_girl', 0);
+    parts.backpack = img(-10, -4, 'backpack');
+    parts.leftArm = img(-12, -11, isBoy ? 'arm_boy' : 'arm_girl', 0);
+    parts.leftLeg = img(-5, 7, isBoy ? 'leg_boy' : 'leg_girl', 0);
+    parts.rightLeg = img(5, 7, isBoy ? 'leg_boy' : 'leg_girl', 0);
     parts.torso = img(0, -2, isBoy ? 'torso_boy' : 'torso_girl');
-    parts.headBaseY = isBoy ? -25 : -28;
+    parts.headBaseY = isBoy ? -26 : -30;
     parts.head = img(0, parts.headBaseY, isBoy ? 'head_boy' : 'head_girl');
-    parts.rightArm = img(11, -10, isBoy ? 'arm_boy' : 'arm_girl', 0);
+    parts.rightArm = img(12, -11, isBoy ? 'arm_boy' : 'arm_girl', 0);
 
     const all = [
+        parts.backpack,
         parts.leftArm, parts.leftLeg, parts.rightLeg,
         parts.torso, parts.head, parts.rightArm
     ];
@@ -44,8 +47,8 @@ export class Player extends Phaser.GameObjects.Container {
         this.parts = parts;
         this.add(all);
 
-        this.body.setSize(22, 50);
-        this.body.setOffset(-11, -24);
+        this.body.setSize(24, 52);
+        this.body.setOffset(-12, -26);
         this.body.setDragX(1800);
         this.body.setMaxVelocity(240, 900);
 
@@ -59,7 +62,7 @@ export class Player extends Phaser.GameObjects.Container {
         this.pose = {
             leftLeg: 0, rightLeg: 0,
             leftArm: 0, rightArm: 0,
-            torso: 0, head: 0, bob: 0
+            torso: 0, head: 0, bob: 0, bag: 0
         };
     }
 
@@ -95,20 +98,21 @@ export class Player extends Phaser.GameObjects.Container {
         this.setScale(sx, sy);
 
         // alvos da pose
-        let tL = 0, tR = 0, tLA = 0, tRA = 0, tTorso = 0, tHead = 0, tBob = 0;
+        let tL = 0, tR = 0, tLA = 0, tRA = 0, tTorso = 0, tHead = 0, tBob = 0, tBag = 0;
         // velocidade de blend: no ar muda mais rápido (resposta), no chão mais suave
         let blend = isGrounded ? 14 : 18;
 
         if (!isGrounded) {
-            // pose aérea reage à velocidade vertical (subindo vs caindo)
+            // pose aérea reage à velocidade vertical (subindo vs caindo) — refs de jump
             const climb = Phaser.Math.Clamp(-vy / 500, -1, 1);
-            tL = -22 - climb * 14;
-            tR = 16 + climb * 10;
-            tLA = -120 - climb * 18;
-            tRA = 120 + climb * 18;
-            tTorso = 4 + climb * 3;
-            tHead = -4 - climb * 2;
-            tBob = climb * 1.5;
+            tL = -28 - climb * 16;
+            tR = 20 + climb * 12;
+            tLA = -130 - climb * 20;
+            tRA = 130 + climb * 20;
+            tTorso = 5 + climb * 3;
+            tHead = -5 - climb * 2;
+            tBob = climb * 1.8;
+            tBag = 6 + climb * 4; // mochila sobe um pouco no ar
             blend = 16;
         } else if (isMoving) {
             // ciclo de corrida proporcional à velocidade (mais fluido em qualquer pace)
@@ -127,16 +131,16 @@ export class Player extends Phaser.GameObjects.Container {
             // pernas e braços em fases opostas (ciclo clássico de caminhada)
             // ângulos em espaço local; o flip do container cuida da direção
             const arm = Math.sin(this.animTime - 0.25);
-            tL = s * 46 * pace;
-            tR = -s * 46 * pace;
-            tLA = -arm * 40 * pace;
-            tRA = arm * 40 * pace;
-            // leve inclinação para a frente do movimento (em local X positivo = direita do personagem)
-            tTorso = 2.5 + Math.abs(s) * 1.5;
-            tHead = s * 3.2;
-            // bob: usa |cos| para um "salto" no meio do passo (mais natural que |sin|)
-            tBob = Math.abs(c) * 2.8 * pace - 1.0;
-            blend = 22; // persegue o ciclo de corrida com snappiness
+            tL = s * 48 * pace;
+            tR = -s * 48 * pace;
+            tLA = -arm * 42 * pace;
+            tRA = arm * 42 * pace;
+            // leve inclinação para a frente do movimento
+            tTorso = 3 + Math.abs(s) * 2;
+            tHead = s * 3.5;
+            tBob = Math.abs(c) * 3.0 * pace - 1.0;
+            tBag = s * 4 * pace; // balanço da mochila
+            blend = 22;
         } else {
             // parado — respiração sutil e leve balanço
             this.animTime += delta * 0.0038;
@@ -144,11 +148,12 @@ export class Player extends Phaser.GameObjects.Container {
             const breathe2 = Math.sin(this.animTime * 0.5);
             tL = 2;
             tR = -2;
-            tLA = 6 + breathe * 4;
-            tRA = -6 - breathe * 4;
-            tTorso = breathe * 0.6;
-            tHead = breathe2 * 1.2;
-            tBob = breathe * 0.9;
+            tLA = 8 + breathe * 5;
+            tRA = -8 - breathe * 5;
+            tTorso = breathe * 0.7;
+            tHead = breathe2 * 1.4;
+            tBob = breathe * 1.0;
+            tBag = breathe * 1.2;
             blend = 10;
         }
 
@@ -161,6 +166,7 @@ export class Player extends Phaser.GameObjects.Container {
         p.torso = damp(p.torso, tTorso, blend, dt);
         p.head = damp(p.head, tHead, blend, dt);
         p.bob = damp(p.bob, tBob, blend * 1.2, dt);
+        p.bag = damp(p.bag, tBag, blend * 0.9, dt);
 
         const parts = this.parts;
         parts.leftLeg.angle = p.leftLeg;
@@ -171,11 +177,14 @@ export class Player extends Phaser.GameObjects.Container {
         parts.head.angle = p.head;
         parts.torso.y = -2 + p.bob;
         parts.head.y = parts.headBaseY + p.bob;
-        // braços e pernas sobem/descem um pouco com o bob do tronco
-        parts.leftArm.y = -10 + p.bob * 0.85;
-        parts.rightArm.y = -10 + p.bob * 0.85;
-        parts.leftLeg.y = 6 + p.bob * 0.35;
-        parts.rightLeg.y = 6 + p.bob * 0.35;
+        parts.leftArm.y = -11 + p.bob * 0.85;
+        parts.rightArm.y = -11 + p.bob * 0.85;
+        parts.leftLeg.y = 7 + p.bob * 0.35;
+        parts.rightLeg.y = 7 + p.bob * 0.35;
+        // mochila acompanha o tronco e balança um pouco
+        parts.backpack.y = -4 + p.bob * 0.7;
+        parts.backpack.angle = p.bag * 0.35;
+        parts.backpack.x = -10 + p.bag * 0.08;
     }
 }
 

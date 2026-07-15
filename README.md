@@ -18,9 +18,9 @@ Jogo de plataforma 2D em pixel art feito com [Phaser 3](https://phaser.io/). A T
 
 ## Conteúdo
 
-- Visual estilo mangá/chibi: contornos de nanquim, olhos grandes com brilho e cel shading
+- Visual estilo Ghibli/chibi: contornos suaves, olhos grandes com brilho e cel shading
 - 10 fases com rolagem de câmera, ambientadas nos cômodos da casa
-- 2 personagens jogáveis: o menino (4 anos, camiseta do AC/DC, cabelo castanho claro) e a menina (cabelo comprido, vestido, meia-calça vermelha e botas pretas)
+- 2 personagens jogáveis: o menino e a menina de moletom amarelo da Colônia de Férias, mochila verde (ele de calça oliva e tênis azul; ela de calça floral e flor no cabelo)
 - Inimigos patrulheiros, plataformas móveis, molas, buracos e escaladas
 - Física com *coyote time*, *jump buffering* e altura de pulo variável
 - Progresso salvo no navegador (fases desbloqueadas + estrelas por fase)

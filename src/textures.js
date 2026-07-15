@@ -1,8 +1,8 @@
-// Todas as texturas do jogo são geradas em tempo real (pixel art procedural estilo mangá:
-// contornos de nanquim, olhos grandes, cel shading)
+// Texturas procedurais estilo Studio Ghibli / chibi:
+// contornos suaves, cel shading, olhos grandes com brilho
 import { TILE } from './levels.js';
 
-const INK = 0x2b1e16; // cor do traço "nanquim"
+const INK = 0x4a3428; // traço quente e suave (não nanquim preto)
 
 // Desenha um degradê vertical em faixas (funciona em WebGL e Canvas)
 // steps mais altos = transição mais suave (bom para fundos full-screen)
@@ -17,23 +17,67 @@ export function gradientStrips(g, x, y, w, h, topColor, bottomColor, steps = 18)
     }
 }
 
-// Olhos pequenos e delicados: oval escuro com brilho (chibi fofo, sem exagero)
-function mangaEye(g, cx, cy, irisColor, lashDir = 0) {
-    g.fillStyle(irisColor); g.fillEllipse(cx, cy, 4.5, 6);
-    g.fillStyle(0xffffff); g.fillCircle(cx - 1, cy - 1.5, 1);
+// Olho Ghibli: esclera + íris castanha + brilhos + cílios leves
+function ghibliEye(g, cx, cy, w = 8, h = 9, lashDir = 0) {
+    g.fillStyle(0xffffff);
+    g.fillEllipse(cx, cy, w, h);
+    g.lineStyle(1.2, INK, 0.85);
+    g.strokeEllipse(cx, cy, w, h);
+    g.fillStyle(0x6b3e26); g.fillEllipse(cx + 0.4, cy + 0.4, w * 0.62, h * 0.7);
+    g.fillStyle(0x3a2214); g.fillEllipse(cx + 0.5, cy + 0.6, w * 0.32, h * 0.38);
+    g.fillStyle(0xffffff); g.fillCircle(cx - w * 0.18, cy - h * 0.22, 1.5);
+    g.fillStyle(0xffffff, 0.7); g.fillCircle(cx + w * 0.14, cy + h * 0.12, 0.7);
     if (lashDir !== 0) {
-        g.lineStyle(1.2, INK);
-        g.lineBetween(cx + 2.5 * lashDir, cy - 3, cx + 4 * lashDir, cy - 4.5);
+        g.lineStyle(1.3, INK, 0.9);
+        g.lineBetween(cx + w * 0.35 * lashDir, cy - h * 0.35, cx + w * 0.55 * lashDir, cy - h * 0.55);
+        g.lineBetween(cx + w * 0.42 * lashDir, cy - h * 0.15, cx + w * 0.62 * lashDir, cy - h * 0.28);
     }
 }
 
-function mangaMouthAndBlush(g, cx, cy) {
-    g.lineStyle(1.5, 0x9c4a35);
-    g.beginPath();
-    g.arc(cx, cy, 2.5, Math.PI * 0.15, Math.PI * 0.85, false);
-    g.strokePath();
-    g.fillStyle(0xff9aa2, 0.35);
-    g.fillCircle(cx - 10, cy - 2.5, 2.2); g.fillCircle(cx + 10, cy - 2.5, 2.2);
+function softBlush(g, cx, cy, spread = 11) {
+    g.fillStyle(0xff8a90, 0.38);
+    g.fillEllipse(cx - spread, cy, 5.5, 3.2);
+    g.fillEllipse(cx + spread, cy, 5.5, 3.2);
+}
+
+function softSmile(g, cx, cy, open = false) {
+    if (open) {
+        g.fillStyle(0xc45a4a);
+        g.fillEllipse(cx, cy + 1, 5, 3.5);
+        g.fillStyle(0xffffff, 0.85);
+        g.fillRect(cx - 2.5, cy - 0.5, 5, 1.4);
+    } else {
+        g.lineStyle(1.6, 0xb05a48);
+        g.beginPath();
+        g.arc(cx, cy, 3.2, Math.PI * 0.12, Math.PI * 0.88, false);
+        g.strokePath();
+    }
+}
+
+// Mini logo "Colônia de Férias" (tigre + texto) no moletom
+function drawCampLogo(g, cx, cy, scale = 1) {
+    const s = scale;
+    // tigre simplificado
+    g.fillStyle(0xf0a040);
+    g.fillEllipse(cx, cy - 3 * s, 5.5 * s, 4.5 * s);
+    g.fillStyle(0x5a3a20);
+    g.fillEllipse(cx - 1.5 * s, cy - 3.5 * s, 1.1 * s, 1.3 * s);
+    g.fillEllipse(cx + 1.5 * s, cy - 3.5 * s, 1.1 * s, 1.3 * s);
+    g.fillStyle(0xffffff);
+    g.fillCircle(cx - 1.5 * s, cy - 3.7 * s, 0.4 * s);
+    g.fillCircle(cx + 1.5 * s, cy - 3.7 * s, 0.4 * s);
+    // orelhas
+    g.fillStyle(0xf0a040);
+    g.fillTriangle(cx - 4 * s, cy - 5 * s, cx - 2 * s, cy - 7 * s, cx - 1 * s, cy - 4.5 * s);
+    g.fillTriangle(cx + 4 * s, cy - 5 * s, cx + 2 * s, cy - 7 * s, cx + 1 * s, cy - 4.5 * s);
+    // faixa colorida sob o tigre
+    g.fillStyle(0x3db8e8);
+    g.fillRoundedRect(cx - 9 * s, cy + 1 * s, 18 * s, 5.5 * s, 1.5 * s);
+    g.fillStyle(0xff8c2a);
+    g.fillRoundedRect(cx - 9 * s, cy + 1 * s, 5 * s, 5.5 * s, 1.5 * s);
+    g.fillStyle(0xffffff, 0.95);
+    g.fillRect(cx - 3 * s, cy + 2.2 * s, 6 * s, 1.2 * s);
+    g.fillRect(cx - 2.5 * s, cy + 4 * s, 5 * s, 1.2 * s);
 }
 
 export function generateTextures(scene) {
@@ -41,124 +85,178 @@ export function generateTextures(scene) {
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
     const T = TILE;
 
+    // Paleta das refs (Colônia de Férias / Ghibli kids)
+    const boySkin = 0xffe0c8, girlSkin = 0xf5c9a8;
+    const boyHair = 0x5c3d2e, boyHairDark = 0x3d281c, boyHairLight = 0x7a5540;
+    const girlHair = 0x4a3226, girlHairDark = 0x2e1e16, girlHairLight = 0x6b4a38;
+    const sweater = 0xf5c842, sweaterHi = 0xffe06a, sweaterSh = 0xd4a82e;
+    const bag = 0x2d6b4f, bagHi = 0x3d8a66, bagSh = 0x1e4a36;
+    const olive = 0x6b7048, oliveSh = 0x525738;
+    const floralBase = 0xe8dcc8;
+
     // ---------- pixel branco básico ----------
     g.clear(); g.fillStyle(0xffffff); g.fillRect(0, 0, 10, 10);
     g.generateTexture('px', 10, 10);
 
-    // ================= PERSONAGENS (chibi mangá) =================
+    // ================= PERSONAGENS (estilo Ghibli das refs) =================
 
-    // --- cabeça do menino: pele clara, cabelo castanho claro (leve 3/4 p/ direita) ---
+    // --- cabeça do menino: cabelo castanho bagunçado, olhos grandes ---
     g.clear();
-    const boySkin = 0xffe3d0, boyHair = 0xb08954, boyHairDark = 0x8a6a3e;
-    g.fillStyle(boySkin); g.fillRoundedRect(4, 10, 32, 26, 10);
-    g.lineStyle(2, INK); g.strokeRoundedRect(4, 10, 32, 26, 10);
+    // orelhas
+    g.fillStyle(boySkin); g.fillEllipse(5, 24, 6, 7); g.fillEllipse(37, 24, 6, 7);
+    g.lineStyle(1.4, INK, 0.7); g.strokeEllipse(5, 24, 6, 7); g.strokeEllipse(37, 24, 6, 7);
+    // rosto
+    g.fillStyle(boySkin); g.fillRoundedRect(6, 12, 30, 26, 12);
+    g.fillStyle(0xffffff, 0.25); g.fillEllipse(28, 20, 8, 10); // highlight pele
+    g.lineStyle(1.8, INK, 0.85); g.strokeRoundedRect(6, 12, 30, 26, 12);
+    // cabelo espetado (topo + franja)
     g.fillStyle(boyHair);
-    g.fillRoundedRect(2, 2, 36, 13, { tl: 12, tr: 12, bl: 3, br: 3 });
-    g.fillTriangle(4, 13, 11, 13, 7, 21);      // franja espetada
-    g.fillTriangle(12, 13, 19, 13, 15, 22);
-    g.fillTriangle(20, 13, 27, 13, 23, 22);
-    g.fillTriangle(28, 13, 35, 13, 32, 20);
-    g.fillStyle(boyHairDark);                    // mecha lateral (marca o lado)
-    g.fillTriangle(34, 12, 39, 18, 33, 22);
-    g.lineStyle(2, INK);
-    g.strokeRoundedRect(2, 2, 36, 13, { tl: 12, tr: 12, bl: 3, br: 3 });
-    // olhos um pouco assimétricos + brilho — deixa claro para onde olha
-    mangaEye(g, 14, 24.5, 0x3a2a1e);
-    mangaEye(g, 25, 24.5, 0x3a2a1e);
-    g.fillStyle(0xffffff, 0.55); g.fillEllipse(32, 20, 4, 6); // highlight de rosto
-    mangaMouthAndBlush(g, 20, 30.5);
-    g.generateTexture('head_boy', 40, 38);
+    g.fillRoundedRect(4, 2, 34, 16, { tl: 14, tr: 14, bl: 4, br: 4 });
+    g.fillTriangle(6, 14, 12, 14, 8, 24);
+    g.fillTriangle(12, 14, 19, 14, 15, 26);
+    g.fillTriangle(18, 12, 26, 12, 22, 25);
+    g.fillTriangle(25, 13, 33, 13, 30, 23);
+    g.fillTriangle(30, 10, 38, 8, 34, 20); // mecha lateral
+    g.fillStyle(boyHairDark);
+    g.fillTriangle(8, 4, 14, 2, 11, 12);
+    g.fillTriangle(22, 1, 28, 3, 24, 12);
+    g.fillStyle(boyHairLight, 0.55);
+    g.fillEllipse(14, 7, 6, 3);
+    g.lineStyle(1.6, INK, 0.75); g.strokeRoundedRect(4, 2, 34, 16, { tl: 14, tr: 14, bl: 4, br: 4 });
+    ghibliEye(g, 15, 24, 7.5, 8.5);
+    ghibliEye(g, 27, 24, 7.5, 8.5);
+    softBlush(g, 21, 29, 10);
+    softSmile(g, 21, 32.5, true);
+    g.generateTexture('head_boy', 42, 40);
 
-    // --- cabeça da menina: pele morena, cabelo comprido escuro em mechas laterais ---
+    // --- cabeça da menina: cabelo longo + flor laranja ---
     g.clear();
-    const girlSkin = 0xc98a5e, girlHair = 0x35221a, girlHairLight = 0x4d3325;
-    g.fillStyle(girlHair);                      // mechas compridas dos lados (afastadas do rosto)
-    g.fillRoundedRect(1, 10, 8, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
-    g.fillRoundedRect(35, 10, 8, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
-    g.lineStyle(2, INK);
-    g.strokeRoundedRect(1, 10, 8, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
-    g.strokeRoundedRect(35, 10, 8, 38, { tl: 2, tr: 2, bl: 5, br: 5 });
-    g.fillStyle(girlSkin);                      // rosto (contorno suave em tom de pele, sem "barba")
-    g.fillRoundedRect(10, 12, 24, 22, 8);
-    g.lineStyle(1.5, 0x9c6a44); g.strokeRoundedRect(10, 12, 24, 22, 8);
-    g.fillStyle(girlHair);                      // topo + franja
-    g.fillRoundedRect(4, 3, 36, 13, { tl: 14, tr: 14, bl: 3, br: 3 });
-    g.lineStyle(2, INK); g.strokeRoundedRect(4, 3, 36, 13, { tl: 14, tr: 14, bl: 3, br: 3 });
-    g.fillStyle(girlHairLight);                 // brilho do cabelo
-    g.fillRoundedRect(9, 5, 9, 3.5, 2);
-    g.fillStyle(0xd9273e);                      // lacinho vermelho
-    g.fillTriangle(33, 4, 39, 1, 38, 8);
-    g.fillTriangle(33, 4, 28, 1, 29, 8);
-    g.fillCircle(33, 4, 2);
-    mangaEye(g, 17, 24.5, 0x2e1f14, -1);
-    mangaEye(g, 27, 24.5, 0x2e1f14, 1);
-    mangaMouthAndBlush(g, 22, 30.5);
-    g.generateTexture('head_girl', 44, 54);
+    // cabelo longo dos lados (atrás do rosto)
+    g.fillStyle(girlHair);
+    g.fillRoundedRect(0, 14, 10, 42, { tl: 4, tr: 2, bl: 8, br: 4 });
+    g.fillRoundedRect(34, 12, 12, 44, { tl: 2, tr: 5, bl: 4, br: 10 });
+    g.fillStyle(girlHairDark);
+    g.fillEllipse(5, 48, 6, 10);
+    g.fillEllipse(40, 50, 7, 12);
+    // orelhas / rosto
+    g.fillStyle(girlSkin);
+    g.fillEllipse(8, 26, 5, 6); g.fillEllipse(36, 26, 5, 6);
+    g.fillRoundedRect(8, 12, 28, 26, 11);
+    g.fillStyle(0xffffff, 0.22); g.fillEllipse(28, 20, 7, 9);
+    g.lineStyle(1.5, 0xc48a62, 0.7); g.strokeRoundedRect(8, 12, 28, 26, 11);
+    // topo + franja
+    g.fillStyle(girlHair);
+    g.fillRoundedRect(3, 2, 38, 16, { tl: 16, tr: 16, bl: 3, br: 3 });
+    g.fillTriangle(8, 14, 16, 14, 11, 24);
+    g.fillTriangle(15, 14, 24, 14, 19, 25);
+    g.fillTriangle(23, 13, 34, 13, 28, 23);
+    g.fillStyle(girlHairLight, 0.5);
+    g.fillEllipse(14, 7, 7, 3);
+    g.lineStyle(1.6, INK, 0.75); g.strokeRoundedRect(3, 2, 38, 16, { tl: 16, tr: 16, bl: 3, br: 3 });
+    // flor laranja no cabelo
+    g.fillStyle(0xf07828);
+    for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 - 0.4;
+        g.fillCircle(34 + Math.cos(a) * 3.2, 10 + Math.sin(a) * 3.2, 2.2);
+    }
+    g.fillStyle(0xffe066); g.fillCircle(34, 10, 1.6);
+    ghibliEye(g, 16, 25, 7.2, 8.2, -1);
+    ghibliEye(g, 28, 25, 7.2, 8.2, 1);
+    softBlush(g, 22, 30, 9.5);
+    softSmile(g, 22, 33, false);
+    g.generateTexture('head_girl', 46, 58);
 
-    // --- tronco do menino: camiseta preta do AC/DC (via RenderTexture p/ o texto) ---
-    g.clear();
-    g.fillStyle(0x191919); g.fillRoundedRect(0, 0, 26, 20, 5);
-    g.lineStyle(2, INK); g.strokeRoundedRect(0, 0, 26, 20, 5);
-    g.fillStyle(0x333333); g.fillRoundedRect(2, 1, 22, 4, 2);   // brilho da malha
-    g.fillStyle(0xffd23f);                                       // raio ⚡ do logo
-    g.fillTriangle(14, 4.5, 11.5, 10.5, 13.5, 10);
-    g.fillTriangle(13, 10, 15, 9.5, 12, 15.5);
-    const rtBoy = scene.make.renderTexture({ width: 26, height: 20, add: false });
-    rtBoy.draw(g, 0, 0);
-    const acdcStyle = {
-        fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '7px',
-        fontStyle: 'bold', color: '#ffffff'
+    // --- tronco: moletom amarelo baggy + logo (mesmo para boy/girl, proporções leves) ---
+    const makeSweater = (key, w, h) => {
+        g.clear();
+        // corpo do moletom (forma de "balão")
+        g.fillStyle(sweater);
+        g.fillRoundedRect(2, 2, w - 4, h - 4, 8);
+        g.fillStyle(sweaterHi, 0.55);
+        g.fillRoundedRect(4, 3, w - 10, 5, 3); // brilho superior
+        g.fillStyle(sweaterSh, 0.35);
+        g.fillRoundedRect(3, h - 10, w - 6, 6, 2); // sombra barra
+        // gola
+        g.fillStyle(sweaterSh);
+        g.fillEllipse(w / 2, 4, 10, 5);
+        g.fillStyle(sweater);
+        g.fillEllipse(w / 2, 5.5, 7, 3.5);
+        drawCampLogo(g, w / 2, h * 0.48, 0.95);
+        g.lineStyle(1.8, INK, 0.8);
+        g.strokeRoundedRect(2, 2, w - 4, h - 4, 8);
+        g.generateTexture(key, w, h);
     };
-    const tAC = scene.make.text({ add: false, text: 'AC', style: acdcStyle });
-    const tDC = scene.make.text({ add: false, text: 'DC', style: acdcStyle });
-    // texto só na frente da camisa — legível quando scaleX > 0 (olhando p/ direita)
-    rtBoy.draw(tAC, 1, 6); rtBoy.draw(tDC, 15.5, 6);
-    tAC.destroy(); tDC.destroy();
-    rtBoy.saveTexture('torso_boy'); // (o RT precisa continuar vivo para manter a textura)
+    makeSweater('torso_boy', 30, 24);
+    makeSweater('torso_girl', 30, 24);
 
-    // --- tronco da menina: vestido verde-água ---
+    // --- mochila verde (atrás do corpo) ---
     g.clear();
-    const dress = 0x2fb8ac, dressDark = 0x1f8d84;
-    g.fillStyle(dress);
-    g.fillPoints([{ x: 8, y: 0 }, { x: 22, y: 0 }, { x: 28, y: 25 }, { x: 2, y: 25 }], true);
-    g.lineStyle(2, INK);
-    g.strokePoints([{ x: 8, y: 0 }, { x: 22, y: 0 }, { x: 28, y: 25 }, { x: 2, y: 25 }], true);
-    g.fillStyle(dressDark);                                      // barra da saia
-    g.fillPoints([{ x: 3.5, y: 21 }, { x: 26.5, y: 21 }, { x: 28, y: 25 }, { x: 2, y: 25 }], true);
-    g.fillStyle(0xffffff); g.fillCircle(15, 2.5, 2.6);           // golinha
-    g.fillStyle(0xff9aa2);                                       // coração estampado
-    g.fillCircle(13.4, 10, 1.7); g.fillCircle(16.6, 10, 1.7);
-    g.fillTriangle(11.7, 11, 18.3, 11, 15, 15);
-    g.generateTexture('torso_girl', 30, 26);
+    g.fillStyle(bag);
+    g.fillRoundedRect(2, 4, 16, 22, 5);
+    g.fillStyle(bagHi, 0.5);
+    g.fillRoundedRect(4, 6, 6, 10, 2);
+    g.fillStyle(bagSh);
+    g.fillRoundedRect(4, 18, 12, 6, 2); // bolso
+    g.lineStyle(1.4, INK, 0.75);
+    g.strokeRoundedRect(2, 4, 16, 22, 5);
+    g.strokeRoundedRect(4, 18, 12, 6, 2);
+    // alças
+    g.lineStyle(2.2, bagHi, 0.95);
+    g.lineBetween(4, 6, 1, 0);
+    g.lineBetween(16, 6, 19, 0);
+    g.fillStyle(bagSh); g.fillCircle(10, 8, 1.5); // botão
+    g.generateTexture('backpack', 22, 28);
 
-    // --- braços ---
-    g.clear();                                                   // menino: manga preta + pele branca
-    g.fillStyle(boySkin); g.fillRoundedRect(0, 0, 8, 18, 4);
-    g.fillStyle(0x191919); g.fillRoundedRect(0, 0, 8, 7, { tl: 4, tr: 4, bl: 0, br: 0 });
-    g.lineStyle(1.5, INK); g.strokeRoundedRect(0, 0, 8, 18, 4);
-    g.generateTexture('arm_boy', 8, 18);
+    // --- braços: manga amarela + mão ---
+    g.clear();
+    g.fillStyle(boySkin); g.fillRoundedRect(0.5, 11, 8, 9, 3.5);
+    g.fillStyle(sweater); g.fillRoundedRect(0, 0, 9, 13, { tl: 4, tr: 4, bl: 3, br: 3 });
+    g.fillStyle(sweaterHi, 0.45); g.fillRect(1, 1, 3, 8);
+    g.lineStyle(1.4, INK, 0.8); g.strokeRoundedRect(0, 0, 9, 20, 4);
+    g.generateTexture('arm_boy', 9, 20);
 
-    g.clear();                                                   // menina: manguinha do vestido + pele morena
-    g.fillStyle(girlSkin); g.fillRoundedRect(0, 0, 8, 18, 4);
-    g.fillStyle(dress); g.fillRoundedRect(0, 0, 8, 6, { tl: 4, tr: 4, bl: 2, br: 2 });
-    g.lineStyle(1.5, INK); g.strokeRoundedRect(0, 0, 8, 18, 4);
-    g.generateTexture('arm_girl', 8, 18);
+    g.clear();
+    g.fillStyle(girlSkin); g.fillRoundedRect(0.5, 11, 8, 9, 3.5);
+    g.fillStyle(sweater); g.fillRoundedRect(0, 0, 9, 13, { tl: 4, tr: 4, bl: 3, br: 3 });
+    g.fillStyle(sweaterHi, 0.45); g.fillRect(1, 1, 3, 8);
+    g.lineStyle(1.4, INK, 0.8); g.strokeRoundedRect(0, 0, 9, 20, 4);
+    g.generateTexture('arm_girl', 9, 20);
 
-    // --- pernas ---
-    g.clear();                                                   // menino: shorts jeans + tênis
-    g.fillStyle(boySkin); g.fillRoundedRect(1, 6, 8, 9, 2);
-    g.fillStyle(0x4a6d9e); g.fillRoundedRect(0, 0, 10, 8, { tl: 3, tr: 3, bl: 1, br: 1 });
-    g.fillStyle(0xf1f1f1); g.fillRoundedRect(0, 14, 10, 6, { tl: 2, tr: 2, bl: 3, br: 3 });
-    g.fillStyle(0xd90429); g.fillRect(0, 15.5, 10, 2);
-    g.lineStyle(1.5, INK); g.strokeRoundedRect(0, 0, 10, 20, 3);
-    g.generateTexture('leg_boy', 10, 20);
+    // --- perna menino: calça oliva + tênis azul velcro ---
+    g.clear();
+    g.fillStyle(olive); g.fillRoundedRect(0, 0, 11, 14, { tl: 3, tr: 3, bl: 1, br: 1 });
+    g.fillStyle(oliveSh, 0.4); g.fillRect(1, 10, 9, 3);
+    // bolso cargo
+    g.fillStyle(oliveSh); g.fillRoundedRect(6, 4, 4, 5, 1);
+    // tênis azul
+    g.fillStyle(0x3a7bd5); g.fillRoundedRect(0, 13, 12, 8, { tl: 2, tr: 3, bl: 3, br: 3 });
+    g.fillStyle(0x2d5fa8); g.fillRect(0, 18, 12, 2.5); // sola
+    g.fillStyle(0x5fd38a); g.fillRect(1, 14, 4, 1.5); // detalhe verde
+    g.fillStyle(0x2a4a80); g.fillRect(3, 15.5, 5, 1.2); // velcro
+    g.fillStyle(0xe8eef5); g.fillRect(0, 19.5, 12, 1.5); // sola clara
+    g.lineStyle(1.3, INK, 0.8); g.strokeRoundedRect(0, 0, 11, 14, 2);
+    g.strokeRoundedRect(0, 13, 12, 8, 2);
+    g.generateTexture('leg_boy', 12, 22);
 
-    g.clear();                                                   // menina: meia-calça vermelha + bota preta
-    g.fillStyle(0xd9273e); g.fillRoundedRect(1, 0, 8, 13, 2);
-    g.fillStyle(0x1c1c22); g.fillRoundedRect(0, 12, 10, 8, { tl: 2, tr: 2, bl: 3, br: 3 });
-    g.fillStyle(0x3a3a44); g.fillRect(0, 12, 10, 2);             // cano da bota
-    g.lineStyle(1.5, INK); g.strokeRoundedRect(0, 0, 10, 20, 3);
-    g.generateTexture('leg_girl', 10, 20);
+    // --- perna menina: calça floral + tênis branco/azul ---
+    g.clear();
+    g.fillStyle(floralBase); g.fillRoundedRect(0, 0, 11, 14, { tl: 3, tr: 3, bl: 1, br: 1 });
+    // flores coloridas
+    const petals = [0xf48fb1, 0x90caf9, 0xce93d8, 0xffcc80, 0x81c784];
+    const flowerDots = [[2, 3], [7, 5], [4, 8], [8, 10], [3, 11], [6, 2]];
+    flowerDots.forEach(([fx, fy], i) => {
+        g.fillStyle(petals[i % petals.length]);
+        g.fillCircle(fx, fy, 1.6);
+        g.fillStyle(0xfff59d); g.fillCircle(fx, fy, 0.6);
+    });
+    g.fillStyle(0xd4c4a8, 0.5); g.fillRect(1, 11, 9, 2.5); // barra
+    // tênis branco
+    g.fillStyle(0xf5f5f0); g.fillRoundedRect(0, 13, 12, 8, { tl: 2, tr: 3, bl: 3, br: 3 });
+    g.fillStyle(0x4fc3f7); g.fillRect(1, 15, 4, 3); // detalhe azul
+    g.fillStyle(0xe0e0d8); g.fillRect(0, 18.5, 12, 2.5);
+    g.lineStyle(1.3, INK, 0.75); g.strokeRoundedRect(0, 0, 11, 14, 2);
+    g.strokeRoundedRect(0, 13, 12, 8, 2);
+    g.generateTexture('leg_girl', 12, 22);
 
     // ================= CENÁRIO =================
 
