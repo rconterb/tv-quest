@@ -26,6 +26,10 @@ Jogo de plataforma 2D em pixel art feito com [Phaser 3](https://phaser.io/). A T
 - Progresso salvo no navegador (fases desbloqueadas + estrelas por fase)
 - Música chiptune em loop com botão de mudo (o som pausa sozinho quando a aba perde o foco)
 
+## Jogar online
+
+**https://rconterb.github.io/tv-quest/**
+
 ## Rodando localmente
 
 Precisa apenas de um servidor estático (ES modules não funcionam via `file://`):
