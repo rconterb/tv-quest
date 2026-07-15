@@ -47,9 +47,9 @@ export function generateTextures(scene) {
 
     // ================= PERSONAGENS (chibi mangá) =================
 
-    // --- cabeça do menino: pele branca, cabelo castanho claro espetado ---
+    // --- cabeça do menino: pele clara, cabelo castanho claro (leve 3/4 p/ direita) ---
     g.clear();
-    const boySkin = 0xffe3d0, boyHair = 0xb08954;
+    const boySkin = 0xffe3d0, boyHair = 0xb08954, boyHairDark = 0x8a6a3e;
     g.fillStyle(boySkin); g.fillRoundedRect(4, 10, 32, 26, 10);
     g.lineStyle(2, INK); g.strokeRoundedRect(4, 10, 32, 26, 10);
     g.fillStyle(boyHair);
@@ -58,11 +58,15 @@ export function generateTextures(scene) {
     g.fillTriangle(12, 13, 19, 13, 15, 22);
     g.fillTriangle(20, 13, 27, 13, 23, 22);
     g.fillTriangle(28, 13, 35, 13, 32, 20);
+    g.fillStyle(boyHairDark);                    // mecha lateral (marca o lado)
+    g.fillTriangle(34, 12, 39, 18, 33, 22);
     g.lineStyle(2, INK);
     g.strokeRoundedRect(2, 2, 36, 13, { tl: 12, tr: 12, bl: 3, br: 3 });
-    mangaEye(g, 15, 24.5, 0x3a2a1e);
-    mangaEye(g, 26, 24.5, 0x3a2a1e);
-    mangaMouthAndBlush(g, 20.5, 30.5);
+    // olhos um pouco assimétricos + brilho — deixa claro para onde olha
+    mangaEye(g, 14, 24.5, 0x3a2a1e);
+    mangaEye(g, 25, 24.5, 0x3a2a1e);
+    g.fillStyle(0xffffff, 0.55); g.fillEllipse(32, 20, 4, 6); // highlight de rosto
+    mangaMouthAndBlush(g, 20, 30.5);
     g.generateTexture('head_boy', 40, 38);
 
     // --- cabeça da menina: pele morena, cabelo comprido escuro em mechas laterais ---
@@ -107,6 +111,7 @@ export function generateTextures(scene) {
     };
     const tAC = scene.make.text({ add: false, text: 'AC', style: acdcStyle });
     const tDC = scene.make.text({ add: false, text: 'DC', style: acdcStyle });
+    // texto só na frente da camisa — legível quando scaleX > 0 (olhando p/ direita)
     rtBoy.draw(tAC, 1, 6); rtBoy.draw(tDC, 15.5, 6);
     tAC.destroy(); tDC.destroy();
     rtBoy.saveTexture('torso_boy'); // (o RT precisa continuar vivo para manter a textura)

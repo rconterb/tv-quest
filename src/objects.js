@@ -50,6 +50,7 @@ export class Player extends Phaser.GameObjects.Container {
         this.body.setMaxVelocity(240, 900);
 
         this.animTime = 0;
+        // facing: +1 = direita, -1 = esquerda (art desenhada de frente; espelha no eixo X)
         this.facing = 1;
         this.squash = { x: 1, y: 1 };
         this.stepMuted = false;
@@ -63,9 +64,11 @@ export class Player extends Phaser.GameObjects.Container {
     }
 
     squashTo(sx, sy, dur = 90) {
+        // squash.x sempre positivo — a direção fica só em this.facing
+        this.scene.tweens.killTweensOf(this.squash);
         this.scene.tweens.add({
             targets: this.squash,
-            x: sx, y: sy,
+            x: Math.abs(sx), y: sy,
             duration: dur,
             yoyo: true,
             ease: 'Quad.easeOut'
@@ -82,10 +85,14 @@ export class Player extends Phaser.GameObjects.Container {
         const isMoving = speed > 12;
         const isGrounded = this.body.touching.down || this.body.blocked.down;
 
-        if (vx > 5) this.facing = 1;
-        else if (vx < -5) this.facing = -1;
+        // direção do olhar acompanha o movimento (nunca de costas)
+        if (vx > 8) this.facing = 1;
+        else if (vx < -8) this.facing = -1;
 
-        this.setScale(this.facing * this.squash.x, this.squash.y);
+        // scaleX = |squash| * facing — garante que squash nunca inverta o sentido
+        const sx = Math.abs(this.squash.x) * this.facing;
+        const sy = this.squash.y;
+        this.setScale(sx, sy);
 
         // alvos da pose
         let tL = 0, tR = 0, tLA = 0, tRA = 0, tTorso = 0, tHead = 0, tBob = 0;
@@ -117,12 +124,14 @@ export class Player extends Phaser.GameObjects.Container {
                 if ((prevSin < 0 && s >= 0) || (prevSin > 0 && s <= 0)) Sound.step();
             }
 
-            // pernas e braços em fases opostas; braços um pouco atrasados
+            // pernas e braços em fases opostas (ciclo clássico de caminhada)
+            // ângulos em espaço local; o flip do container cuida da direção
             const arm = Math.sin(this.animTime - 0.25);
             tL = s * 46 * pace;
             tR = -s * 46 * pace;
             tLA = -arm * 40 * pace;
             tRA = arm * 40 * pace;
+            // leve inclinação para a frente do movimento (em local X positivo = direita do personagem)
             tTorso = 2.5 + Math.abs(s) * 1.5;
             tHead = s * 3.2;
             // bob: usa |cos| para um "salto" no meio do passo (mais natural que |sin|)
