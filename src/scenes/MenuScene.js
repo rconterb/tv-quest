@@ -113,9 +113,32 @@ export class MenuScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true });
 
         const preview = this.add.container(x, y - 12);
-        const { all } = createCharacterParts(this, charKey);
+        const { parts, all } = createCharacterParts(this, charKey);
         preview.add(all);
         preview.setScale(1.55);
+
+        // idle fluido no menu: respiração + balanço dos braços
+        const idlePhase = { t: Math.random() * Math.PI * 2 };
+        this.tweens.add({
+            targets: idlePhase, t: idlePhase.t + Math.PI * 2,
+            duration: 2200, repeat: -1, ease: 'Linear',
+            onUpdate: () => {
+                const b = Math.sin(idlePhase.t);
+                const b2 = Math.sin(idlePhase.t * 0.5);
+                parts.torso.y = -2 + b * 1.2;
+                parts.head.y = parts.headBaseY + b * 1.2;
+                parts.head.angle = b2 * 2;
+                parts.leftArm.angle = 8 + b * 6;
+                parts.rightArm.angle = -8 - b * 6;
+                parts.leftArm.y = -10 + b * 1.0;
+                parts.rightArm.y = -10 + b * 1.0;
+            }
+        });
+        this.tweens.add({
+            targets: preview, y: y - 16,
+            duration: 900 + Math.random() * 200,
+            yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+        });
 
         this.add.text(x, y + 58, CHARACTERS[charKey].label, {
             fontSize: '17px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff'
@@ -127,8 +150,14 @@ export class MenuScene extends Phaser.Scene {
             updateSave({ character: charKey });
             this.refreshCharCards();
         });
-        card.on('pointerover', () => { if (this.selectedChar !== charKey) card.setFillStyle(0x2e2e52); });
-        card.on('pointerout', () => this.refreshCharCards());
+        card.on('pointerover', () => {
+            if (this.selectedChar !== charKey) card.setFillStyle(0x2e2e52);
+            this.tweens.add({ targets: preview, scale: 1.68, duration: 140, ease: 'Back.easeOut' });
+        });
+        card.on('pointerout', () => {
+            this.refreshCharCards();
+            this.tweens.add({ targets: preview, scale: 1.55, duration: 140, ease: 'Quad.easeOut' });
+        });
 
         this.charCards[charKey] = card;
     }

@@ -5,7 +5,8 @@ import { TILE } from './levels.js';
 const INK = 0x2b1e16; // cor do traço "nanquim"
 
 // Desenha um degradê vertical em faixas (funciona em WebGL e Canvas)
-export function gradientStrips(g, x, y, w, h, topColor, bottomColor, steps = 12) {
+// steps mais altos = transição mais suave (bom para fundos full-screen)
+export function gradientStrips(g, x, y, w, h, topColor, bottomColor, steps = 18) {
     const top = Phaser.Display.Color.ValueToColor(topColor);
     const bottom = Phaser.Display.Color.ValueToColor(bottomColor);
     const stripH = h / steps;
@@ -290,16 +291,21 @@ export function generateTextures(scene) {
     heart('heart', 0xff4d6d);
     heart('heart_empty', 0x5a5a6e);
 
-    // ---------- partículas ----------
-    g.clear(); g.fillStyle(0xffffff); g.fillCircle(4, 4, 3.5);
+    // ---------- partículas (formas um pouco mais orgânicas) ----------
+    g.clear();
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(4, 4, 3.5);
+    g.fillStyle(0xffffff, 0.35); g.fillCircle(3, 3, 1.6); // highlight
     g.generateTexture('dust', 8, 8);
 
-    g.clear(); g.fillStyle(0xfff3b0);
-    g.fillRect(4, 0, 3, 11); g.fillRect(0, 4, 11, 3);
+    g.clear();
+    g.fillStyle(0xfff3b0);
+    g.fillRect(4.5, 0, 2, 11); g.fillRect(0, 4.5, 11, 2);
+    g.fillStyle(0xffffff, 0.85); g.fillCircle(5.5, 5.5, 1.4);
     g.generateTexture('spark', 11, 11);
 
-    g.clear(); g.fillStyle(0xffffff); g.fillRect(0, 0, 8, 8);
-    g.generateTexture('confetti', 8, 8);
+    g.clear();
+    g.fillStyle(0xffffff); g.fillRoundedRect(0, 0, 8, 5, 1.5);
+    g.generateTexture('confetti', 8, 5);
 
     // ---------- padrão de papel de parede ----------
     g.clear();

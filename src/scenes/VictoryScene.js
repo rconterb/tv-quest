@@ -27,19 +27,33 @@ export class VictoryScene extends Phaser.Scene {
             duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
 
-        // as duas crianças assistindo juntas
-        const kid1 = this.add.container(400, 330);
-        kid1.add(createCharacterParts(this, 'boy').all);
-        kid1.setScale(1.8);
-        const kid2 = this.add.container(560, 330);
-        kid2.add(createCharacterParts(this, 'girl').all);
-        kid2.setScale(-1.8, 1.8); // virada para a TV
-        [kid1, kid2].forEach((kid, i) => {
+        // as duas crianças assistindo juntas (idle com respiração)
+        const makeKid = (x, charKey, flip) => {
+            const kid = this.add.container(x, 330);
+            const { parts, all } = createCharacterParts(this, charKey);
+            kid.add(all);
+            kid.setScale(flip ? -1.8 : 1.8, 1.8);
+            const phase = { t: Math.random() * Math.PI * 2 };
             this.tweens.add({
-                targets: kid, y: 322, duration: 500, yoyo: true, repeat: -1,
-                delay: i * 250, ease: 'Quad.easeOut'
+                targets: phase, t: phase.t + Math.PI * 2,
+                duration: 2000, repeat: -1, ease: 'Linear',
+                onUpdate: () => {
+                    const b = Math.sin(phase.t);
+                    parts.torso.y = -2 + b * 1.4;
+                    parts.head.y = parts.headBaseY + b * 1.4;
+                    parts.head.angle = Math.sin(phase.t * 0.6) * 2.5;
+                    parts.leftArm.angle = 10 + b * 8;
+                    parts.rightArm.angle = -10 - b * 8;
+                }
             });
-        });
+            this.tweens.add({
+                targets: kid, y: 322, duration: 700, yoyo: true, repeat: -1,
+                delay: flip ? 200 : 0, ease: 'Sine.easeInOut'
+            });
+            return kid;
+        };
+        makeKid(400, 'boy', false);
+        makeKid(560, 'girl', true);
 
         this.add.text(480, 66, 'PARABÉNS!', {
             fontSize: '58px', fontFamily: 'monospace', fontStyle: 'bold',

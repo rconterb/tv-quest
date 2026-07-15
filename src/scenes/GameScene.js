@@ -68,30 +68,51 @@ export class GameScene extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.stars, this.onStar, null, this);
         this.physics.add.overlap(this.player, this.tvGroup, this.onTv, null, this);
 
-        // câmera
+        // câmera — follow suave + deadzone generosa (look-ahead no update)
         const cam = this.cameras.main;
         cam.setBounds(0, 0, Math.max(this.worldW, 960), this.worldH);
-        cam.startFollow(this.player, true, 0.12, 0.12);
-        cam.setDeadzone(180, 120);
+        cam.startFollow(this.player, true, 0.08, 0.1);
+        cam.setDeadzone(140, 100);
+        cam.setLerp(0.08, 0.1);
         cam.fadeIn(400, 0, 0, 0);
+        this.camLookX = 0; // offset lateral suave na direção do movimento
 
-        // partículas
+        // partículas (curvas de alpha/scale mais suaves)
         this.dustEmitter = this.add.particles(0, 0, 'dust', {
-            speed: { min: 20, max: 70 }, angle: { min: 230, max: 310 },
-            lifespan: 400, alpha: { start: 0.7, end: 0 },
-            scale: { start: 1, end: 0.2 }, emitting: false
+            speed: { min: 18, max: 65 }, angle: { min: 220, max: 320 },
+            lifespan: { min: 320, max: 520 },
+            alpha: { start: 0.65, end: 0, ease: 'Quad.easeOut' },
+            scale: { start: 1.1, end: 0.15, ease: 'Sine.easeIn' },
+            gravityY: -20, emitting: false
         }).setDepth(6);
         this.sparkEmitter = this.add.particles(0, 0, 'spark', {
-            speed: { min: 40, max: 120 }, lifespan: 500,
-            alpha: { start: 1, end: 0 }, scale: { start: 1, end: 0.2 },
-            rotate: { min: 0, max: 180 }, emitting: false
+            speed: { min: 45, max: 140 }, lifespan: { min: 380, max: 620 },
+            alpha: { start: 1, end: 0, ease: 'Quad.easeOut' },
+            scale: { start: 1.15, end: 0.1, ease: 'Cubic.easeIn' },
+            rotate: { min: 0, max: 360 }, emitting: false
         }).setDepth(6);
         this.confettiEmitter = this.add.particles(0, 0, 'confetti', {
             speedY: { min: 80, max: 240 }, speedX: { min: -140, max: 140 },
-            rotate: { min: 0, max: 360 }, lifespan: 2000, gravityY: 300,
-            scale: { min: 0.5, max: 1 }, emitting: false,
+            rotate: { min: 0, max: 360 }, lifespan: 2200, gravityY: 280,
+            scale: { min: 0.5, max: 1.15 }, emitting: false,
+            alpha: { start: 1, end: 0.2 },
             tint: [0xffd23f, 0xff5da2, 0x4cc9f0, 0x80ed99, 0xff9f1c]
         }).setDepth(90);
+
+        // poeirinha flutuante no ar (atmosfera)
+        this.add.particles(0, 0, 'dust', {
+            x: { min: 0, max: this.worldW },
+            y: { min: 40, max: this.worldH - 80 },
+            speedX: { min: -14, max: 14 },
+            speedY: { min: -22, max: -6 },
+            lifespan: { min: 3000, max: 5500 },
+            alpha: { start: 0.4, end: 0, ease: 'Sine.easeIn' },
+            scale: { start: 0.45, end: 0.12 },
+            frequency: 240,
+            quantity: 1,
+            blendMode: 'ADD',
+            tint: [0xffffff, 0xfff3b0, 0xcdefff]
+        }).setDepth(-5);
 
         // controles
         this.keys = this.input.keyboard.addKeys('LEFT,RIGHT,UP,DOWN,SPACE,W,A,D,R,ESC,ENTER');
@@ -111,9 +132,9 @@ export class GameScene extends Phaser.Scene {
     // ---------- construção da fase ----------
 
     createBackground() {
-        // parede com degradê
+        // parede com degradê (mais faixas = menos banding)
         const bg = this.add.graphics().setScrollFactor(0).setDepth(-30);
-        gradientStrips(bg, 0, 0, 960, 540, this.theme.wallTop, this.theme.wallBottom, 14);
+        gradientStrips(bg, 0, 0, 960, 540, this.theme.wallTop, this.theme.wallBottom, 24);
 
         // padrão de papel de parede com parallax suave
         this.wallpaper = this.add.tileSprite(480, 270, 960, 540, 'wallpaper')
@@ -168,10 +189,24 @@ export class GameScene extends Phaser.Scene {
                     case 'c': {
                         const star = this.stars.create(cx, cy, 'star');
                         star.setDepth(2);
+                        star.baseY = cy;
+                        // flutuação + brilho + rotação em camadas (mais orgânico)
                         this.tweens.add({
-                            targets: star, scale: { from: 1, to: 1.25 }, angle: { from: -12, to: 12 },
-                            duration: 550, yoyo: true, repeat: -1,
-                            delay: (col % 5) * 120, ease: 'Sine.easeInOut'
+                            targets: star,
+                            y: cy - 7,
+                            duration: 700 + (col % 4) * 80,
+                            yoyo: true, repeat: -1,
+                            delay: (col % 5) * 100,
+                            ease: 'Sine.easeInOut'
+                        });
+                        this.tweens.add({
+                            targets: star,
+                            scale: { from: 0.95, to: 1.18 },
+                            angle: { from: -14, to: 14 },
+                            duration: 900 + (col % 3) * 100,
+                            yoyo: true, repeat: -1,
+                            delay: (col % 5) * 80,
+                            ease: 'Sine.easeInOut'
                         });
                         break;
                     }
@@ -391,10 +426,10 @@ export class GameScene extends Phaser.Scene {
         this.wasGrounded = grounded;
         this.lastFallSpeed = body.velocity.y;
 
-        // poeirinha ao correr
-        if (grounded && Math.abs(body.velocity.x) > 120 && time > this.nextRunDust) {
+        // poeirinha ao correr (mais densa conforme a velocidade)
+        if (grounded && Math.abs(body.velocity.x) > 100 && time > this.nextRunDust) {
             this.dustEmitter.explode(1, this.player.x - this.player.facing * 8, this.player.y + 24);
-            this.nextRunDust = time + 160;
+            this.nextRunDust = time + Phaser.Math.Clamp(180 - Math.abs(body.velocity.x) * 0.25, 90, 180);
         }
 
         // plataformas móveis: inverte nos limites e carrega o jogador junto
@@ -411,6 +446,17 @@ export class GameScene extends Phaser.Scene {
                 if (p.body.deltaY() > 0) this.player.y += p.body.deltaY();
             }
         });
+
+        // câmera: look-ahead suave na direção do movimento
+        const lookTarget = Phaser.Math.Clamp(body.velocity.x * 0.28, -70, 70);
+        this.camLookX = Phaser.Math.Linear(this.camLookX, lookTarget, 1 - Math.exp(-6 * (delta / 1000)));
+        this.cameras.main.setFollowOffset(-this.camLookX, 0);
+
+        // parallax do papel de parede (acompanha o scroll com atraso)
+        if (this.wallpaper) {
+            this.wallpaper.tilePositionX = this.cameras.main.scrollX * 0.12;
+            this.wallpaper.tilePositionY = this.cameras.main.scrollY * 0.06;
+        }
 
         // caiu do mundo
         if (this.player.y > this.worldH + 80) this.die(true);
@@ -436,10 +482,14 @@ export class GameScene extends Phaser.Scene {
             this.jumpsUsed = 1;          // ainda dá para usar o pulo duplo no ar
             Sound.spring();
             player.squashTo(0.7, 1.3, 130);
+            this.tweens.killTweensOf(spring);
+            spring.setScale(1, 1);
             this.tweens.add({
-                targets: spring, scaleY: 0.5, duration: 90, yoyo: true, ease: 'Quad.easeOut'
+                targets: spring, scaleY: 0.45, scaleX: 1.15, duration: 80,
+                yoyo: true, ease: 'Back.easeOut',
+                onComplete: () => spring.setScale(1, 1)
             });
-            this.dustEmitter.explode(6, spring.x, spring.y);
+            this.dustEmitter.explode(8, spring.x, spring.y);
         }
     }
 
