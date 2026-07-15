@@ -1,7 +1,6 @@
 {
   "frame": [128, 128],
   "files": [
-    "boy/crouch.png",
     "boy/front.png",
     "boy/happy.png",
     "boy/idle.png",
@@ -14,7 +13,6 @@
     "boy/walk1.png",
     "boy/walk2.png",
     "boy/walk3.png",
-    "girl/crouch.png",
     "girl/front.png",
     "girl/happy.png",
     "girl/idle.png",

@@ -56,13 +56,13 @@ export function createCharacterAnims(scene) {
         // idle estável — só 2 frames muito parecidos de perfil
         mk(`${char}-idle`, [t('idle'), t('idle_b')], 1.6, -1);
 
-        // corrida: walk da sheet + run HQ (mesmo canvas → sem salto)
+        // corrida: só frames de perfil já normalizados p/ a direita
+        // ordem: passada (sheet) + corrida HQ
         mk(`${char}-run`, [
-            t('walk1'), t('walk2'), t('walk3'),
-            t('run1'), t('run2'), t('walk2')
+            t('walk1'), t('run1'), t('walk2'), t('run2'), t('walk3')
         ], 10, -1);
 
-        // jump anim (fallback; no ar usamos pose estática)
+        // jump (pose estática no ar via setTexture; anim é fallback)
         mk(`${char}-jump`, [t('jump_mid')], 1, -1);
 
         mk(`${char}-happy`, [t('happy'), t('front'), t('happy')], 2.5, -1);

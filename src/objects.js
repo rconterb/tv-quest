@@ -1,4 +1,4 @@
-// Personagens (sprites 128×128) e inimigos
+// Personagens (sprites 128×128, perfil → DIREITA) e inimigos
 import { Sound } from './audio.js';
 import {
     CHAR_BODY,
@@ -11,9 +11,8 @@ import {
 export { CHARACTERS };
 
 /**
- * Player com sprites.
- * Arte de perfil olha para a DIREITA → flipX quando facing = -1 (esquerda).
- * Canvas fixo → sem “pulo” de hitbox/posição entre frames.
+ * Arte de perfil olha para a DIREITA.
+ * flipX só quando facing === -1 (esquerda).
  */
 export class Player extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, charKey) {
@@ -29,7 +28,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.setScale(this.baseScale);
         this.setOrigin(0.5, 1);
 
-        // hitbox fixa (canvas 128×128)
         const bw = CHAR_BODY.width;
         const bh = CHAR_BODY.height;
         this.body.setSize(bw, bh);
@@ -55,10 +53,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.currentAnim = key;
         this.airFrame = null;
         this.anims.play(key, true);
+        // re-aplica flip depois de trocar anim (Phaser às vezes reseta)
+        this.applyFacing();
     }
 
     applyFacing() {
-        // sprites olham para a direita
         this.setFlipX(this.facing < 0);
         this.setScale(
             this.baseScale * Math.abs(this.squash.x),
@@ -85,6 +84,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.currentAnim = `${this.charKey}-jump`;
         this.anims.stop();
         this.setTexture(charTex(this.charKey, frame));
+        this.applyFacing(); // mantém direção após setTexture
     }
 
     updateAnim(time, delta) {
@@ -96,14 +96,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         const isMoving = speed > 18;
         const isGrounded = this.body.touching.down || this.body.blocked.down;
 
-        // deadzone maior evita flip nervoso por atrito
-        if (vx > 20) this.facing = 1;
-        else if (vx < -20) this.facing = -1;
-        this.applyFacing();
+        if (vx > 24) this.facing = 1;
+        else if (vx < -24) this.facing = -1;
 
         if (!isGrounded) {
-            // um único frame estável por fase do pulo (sem trocar a cada tick)
-            const frame = vy < -80 ? 'jump_b' : (vy > 160 ? 'jump' : 'jump_mid');
+            // um frame estável por “fase” do pulo (evita trocar textura a cada tick)
+            let frame = 'jump_mid';
+            if (vy < -100) frame = 'jump_b';
+            else if (vy > 180) frame = 'jump';
             this.setAirPose(frame);
         } else if (isMoving) {
             this.playAnim('run');
@@ -118,6 +118,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         } else {
             this.playAnim('idle');
         }
+
+        // sempre no fim: garante flip correto (anims/setTexture não invertem arte)
+        this.applyFacing();
     }
 }
 

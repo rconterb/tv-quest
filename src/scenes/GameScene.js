@@ -129,8 +129,8 @@ export class GameScene extends Phaser.Scene {
         this.createHud(lvl);
         this.showIntroBanner(lvl);
 
-        // trilha sonora conforme a opção do menu
-        if (loadSave().music !== false) Music.start();
+        // rock diferente por fase (se música ligada no menu)
+        if (loadSave().music !== false) Music.start(this.levelIndex);
         else Music.stop();
     }
 
