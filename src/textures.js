@@ -1,334 +1,453 @@
-// Cenário estilo aquarela Ghibli — contornos suaves, cores quentes, sem pixel hard
+// Cenário aquarela Ghibli de alta fidelidade (procedural)
+// Contornos suaves, cel shading, volume e luz quente
 import { TILE } from './levels.js';
 
-const INK = 0x6b5344; // traço marrom suave
+const INK = 0x5c4638;
 
-export function gradientStrips(g, x, y, w, h, topColor, bottomColor, steps = 28) {
+export function gradientStrips(g, x, y, w, h, topColor, bottomColor, steps = 36) {
     const top = Phaser.Display.Color.ValueToColor(topColor);
     const bottom = Phaser.Display.Color.ValueToColor(bottomColor);
     const stripH = h / steps;
     for (let i = 0; i < steps; i++) {
         const c = Phaser.Display.Color.Interpolate.ColorWithColor(top, bottom, steps - 1, i);
         g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b));
-        g.fillRect(x, y + i * stripH, w, stripH + 1);
+        g.fillRect(x, y + i * stripH, w, stripH + 1.2);
     }
 }
 
+function softStroke(g, drawFn, color = INK, alpha = 0.28, width = 1.6) {
+    g.lineStyle(width, color, alpha);
+    drawFn();
+}
+
 export function generateTextures(scene) {
-    // bump versão quando o pack de texturas muda (força regenerar)
-    if (scene.textures.exists('texpack_v4')) return;
+    if (scene.textures.exists('texpack_v5')) return;
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
     const T = TILE;
 
-    g.clear(); g.fillStyle(0xffffff); g.fillRect(0, 0, 10, 10);
-    g.generateTexture('px', 10, 10);
+    // pixel base
+    g.clear(); g.fillStyle(0xffffff); g.fillRect(0, 0, 8, 8);
+    g.generateTexture('px', 8, 8);
 
-    // ---------- blocos de chão (madeira/azulejo com volume) ----------
-    const block = (key, base, dark, light) => {
+    // sombra elíptica reutilizável
+    g.clear();
+    g.fillStyle(0x000000, 0.28); g.fillEllipse(40, 12, 72, 18);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(40, 12, 88, 24);
+    g.generateTexture('shadow_soft', 80, 28);
+
+    // ================= BLOCOS (cada cômodo com material distinto) =================
+    const makeWoodBlock = (key, base, dark, light, grain = true) => {
         g.clear();
-        g.fillStyle(base); g.fillRoundedRect(0, 0, T, T, 4);
-        // face superior iluminada
-        g.fillStyle(light, 0.65); g.fillRoundedRect(2, 2, T - 4, 10, 3);
-        // sombra inferior
-        g.fillStyle(0x000000, 0.12); g.fillRect(0, T - 8, T, 8);
-        g.fillStyle(dark, 0.3); g.fillRect(3, T - 14, T - 6, 5);
-        // veios / junta
-        g.lineStyle(1.1, dark, 0.28);
-        g.lineBetween(6, 18, T - 6, 20);
-        g.lineBetween(8, 30, T - 8, 28);
-        g.lineBetween(10, 40, T - 10, 42);
-        g.lineStyle(1.4, INK, 0.28);
-        g.strokeRoundedRect(0.5, 0.5, T - 1, T - 1, 4);
+        // corpo
+        g.fillStyle(base); g.fillRoundedRect(0, 0, T, T, 5);
+        // borda superior (luz)
+        g.fillStyle(light, 0.7); g.fillRoundedRect(2, 2, T - 4, 9, 3);
+        // planks horizontais
+        if (grain) {
+            g.fillStyle(dark, 0.18);
+            g.fillRect(3, 16, T - 6, 1.5);
+            g.fillRect(3, 28, T - 6, 1.5);
+            g.fillRect(4, 40, T - 8, 1.2);
+            // nó da madeira
+            g.fillStyle(dark, 0.22); g.fillEllipse(34, 22, 6, 4);
+            g.fillStyle(light, 0.15); g.fillEllipse(33, 21, 3, 2);
+        }
+        // sombra base
+        g.fillStyle(0x000000, 0.14); g.fillRect(0, T - 7, T, 7);
+        g.fillStyle(dark, 0.35); g.fillRect(2, T - 11, T - 4, 4);
+        softStroke(g, () => g.strokeRoundedRect(1, 1, T - 2, T - 2, 5), INK, 0.32, 1.5);
         g.generateTexture(key, T, T);
     };
-    block('block_wood',   0xc4a574, 0x9a7548, 0xe2c89a);
-    block('block_carpet', 0x7a9fd4, 0x5a7fb4, 0xa8c4ec);
-    block('block_tile',   0xe8e4d8, 0xc8c2b4, 0xf6f3ea);
-    block('block_desk',   0xa88860, 0x806848, 0xc8a878);
-    block('block_attic',  0x8a7a72, 0x6a5a52, 0xa89890);
 
-    // ---------- TV ----------
+    makeWoodBlock('block_wood', 0xc9a66e, 0x8f6a3c, 0xe8c998);
+    makeWoodBlock('block_desk', 0xb08958, 0x7a5a38, 0xd4b07a);
+
+    // carpete (azul com trama)
+    g.clear();
+    g.fillStyle(0x6a94d0); g.fillRoundedRect(0, 0, T, T, 5);
+    g.fillStyle(0x8eb0e8, 0.55); g.fillRoundedRect(2, 2, T - 4, 8, 3);
+    for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 5; j++) {
+            g.fillStyle((i + j) % 2 ? 0x5a84c0 : 0x7aa4e0, 0.25);
+            g.fillRect(4 + i * 8, 12 + j * 7, 7, 6);
+        }
+    }
+    g.fillStyle(0x000000, 0.12); g.fillRect(0, T - 7, T, 7);
+    softStroke(g, () => g.strokeRoundedRect(1, 1, T - 2, T - 2, 5), 0x3a5a8a, 0.3, 1.4);
+    g.generateTexture('block_carpet', T, T);
+
+    // azulejo de cozinha
+    g.clear();
+    g.fillStyle(0xefece4); g.fillRoundedRect(0, 0, T, T, 4);
+    g.fillStyle(0xffffff, 0.5); g.fillRect(2, 2, T - 4, 6);
+    g.lineStyle(1.5, 0xc8c4b8, 0.7);
+    g.lineBetween(T / 2, 2, T / 2, T - 2);
+    g.lineBetween(2, T / 2, T - 2, T / 2);
+    g.fillStyle(0x000000, 0.08); g.fillRect(0, T - 6, T, 6);
+    softStroke(g, () => g.strokeRoundedRect(1, 1, T - 2, T - 2, 4), INK, 0.2, 1.2);
+    g.generateTexture('block_tile', T, T);
+
+    // sótão (madeira escura + pregos)
+    g.clear();
+    g.fillStyle(0x7a6a60); g.fillRoundedRect(0, 0, T, T, 4);
+    g.fillStyle(0x9a8a80, 0.45); g.fillRoundedRect(2, 2, T - 4, 8, 3);
+    g.fillStyle(0x5a4a42, 0.35);
+    g.fillRect(3, 18, T - 6, 2); g.fillRect(3, 32, T - 6, 2);
+    g.fillStyle(0x3a3028, 0.5);
+    g.fillCircle(10, 12, 1.5); g.fillCircle(T - 10, 12, 1.5);
+    g.fillCircle(10, T - 12, 1.5); g.fillCircle(T - 10, T - 12, 1.5);
+    g.fillStyle(0x000000, 0.18); g.fillRect(0, T - 7, T, 7);
+    softStroke(g, () => g.strokeRoundedRect(1, 1, T - 2, T - 2, 4), 0x2a2018, 0.4, 1.4);
+    g.generateTexture('block_attic', T, T);
+
+    // ================= TV =================
     const tv = (key, on) => {
         g.clear();
-        g.lineStyle(2.5, 0x8a8a96, 0.8);
-        g.lineBetween(42, 14, 22, 2); g.lineBetween(42, 14, 62, 2);
-        g.fillStyle(0x8a8a96); g.fillCircle(22, 2, 2.5); g.fillCircle(62, 2, 2.5);
-        g.fillStyle(0x5a5a68);
-        g.fillRoundedRect(4, 14, 76, 50, 10);
-        g.fillStyle(0x7a7a88, 0.5);
-        g.fillRoundedRect(6, 16, 72, 8, { tl: 8, tr: 8, bl: 0, br: 0 });
+        // antenas
+        g.lineStyle(2.8, 0x8a8a98, 0.9);
+        g.lineBetween(48, 16, 24, 2); g.lineBetween(48, 16, 72, 2);
+        g.fillStyle(0x9a9aa8); g.fillCircle(24, 2, 3); g.fillCircle(72, 2, 3);
+        // sombra
+        g.fillStyle(0x000000, 0.15); g.fillEllipse(48, 78, 40, 8);
+        // caixa
+        g.fillStyle(0x4a4a58); g.fillRoundedRect(6, 14, 84, 58, 12);
+        g.fillStyle(0x6a6a78, 0.55); g.fillRoundedRect(8, 16, 80, 10, { tl: 10, tr: 10, bl: 0, br: 0 });
         if (on) {
-            gradientStrips(g, 12, 26, 50, 32, 0xb8f0ff, 0x7ad4f0, 8);
-            g.fillStyle(0xffffff, 0.7); g.fillCircle(34, 40, 7);
-            g.fillStyle(0xfff3c0, 0.55); g.fillEllipse(48, 38, 10, 14);
+            gradientStrips(g, 14, 28, 56, 36, 0xc8f4ff, 0x6ec8f0, 10);
+            g.fillStyle(0xffffff, 0.75); g.fillCircle(38, 44, 9);
+            g.fillStyle(0xfff6c8, 0.5); g.fillEllipse(52, 42, 14, 18);
+            g.fillStyle(0xffffff, 0.25); g.fillRoundedRect(18, 32, 14, 28, 3);
         } else {
-            g.fillStyle(0x2a3048); g.fillRoundedRect(12, 26, 50, 32, 6);
-            g.fillStyle(0x4a5578, 0.4); g.fillRect(16, 28, 8, 26);
+            g.fillStyle(0x1a2038); g.fillRoundedRect(14, 28, 56, 36, 7);
+            g.fillStyle(0x3a4568, 0.45); g.fillRect(20, 32, 10, 28);
         }
-        g.lineStyle(1.5, INK, 0.4); g.strokeRoundedRect(4, 14, 76, 50, 10);
-        g.fillStyle(0x9a9aa8); g.fillCircle(70, 32, 3.5); g.fillCircle(70, 46, 3.5);
-        g.fillStyle(0x4a4a58); g.fillRect(14, 64, 10, 5); g.fillRect(60, 64, 10, 5);
-        g.generateTexture(key, 84, 72);
+        softStroke(g, () => g.strokeRoundedRect(6, 14, 84, 58, 12), INK, 0.35, 1.6);
+        softStroke(g, () => g.strokeRoundedRect(14, 28, 56, 36, 7), INK, 0.25, 1.2);
+        g.fillStyle(0xa0a0b0); g.fillCircle(80, 36, 4); g.fillCircle(80, 52, 4);
+        g.fillStyle(0x3a3a48); g.fillRoundedRect(16, 72, 12, 6, 2); g.fillRoundedRect(68, 72, 12, 6, 2);
+        g.generateTexture(key, 96, 80);
     };
     tv('tv_off', false);
     tv('tv_on', true);
 
-    // ---------- perigos (mais arredondados) ----------
+    // ================= PERIGOS =================
     g.clear();
-    g.fillStyle(0xe85a4f); g.fillRoundedRect(0, 4, 36, 14, { tl: 8, tr: 4, bl: 0, br: 0 });
-    g.fillRoundedRect(24, 0, 18, 18, 8);
-    g.fillStyle(0xf5f0e8); g.fillRoundedRect(0, 15, 44, 7, { bl: 4, br: 4, tl: 0, tr: 0 });
-    g.fillStyle(0xffffff, 0.6); g.fillRect(6, 8, 3, 4); g.fillRect(13, 8, 3, 4);
-    g.lineStyle(1.4, INK, 0.35); g.strokeRoundedRect(0.5, 0.5, 43, 21, 5);
-    g.generateTexture('sneaker', 44, 22);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(24, 22, 20, 5);
+    g.fillStyle(0xe85a4f); g.fillRoundedRect(2, 5, 38, 14, { tl: 10, tr: 5, bl: 2, br: 2 });
+    g.fillRoundedRect(26, 1, 20, 18, 9);
+    g.fillStyle(0xff8a7a, 0.45); g.fillRoundedRect(6, 7, 18, 5, 3);
+    g.fillStyle(0xf8f4ec); g.fillRoundedRect(1, 16, 46, 8, { bl: 5, br: 5, tl: 0, tr: 0 });
+    g.fillStyle(0xffffff, 0.7); g.fillRect(8, 9, 3, 4); g.fillRect(15, 9, 3, 4);
+    softStroke(g, () => g.strokeRoundedRect(1, 1, 46, 22, 6), INK, 0.3, 1.3);
+    g.generateTexture('sneaker', 48, 26);
 
     const lego = (key, color, dark) => {
         g.clear();
-        g.fillStyle(color); g.fillRoundedRect(0, 8, 26, 14, 4);
-        g.fillRoundedRect(3, 2, 7, 7, 3); g.fillRoundedRect(15, 2, 7, 7, 3);
-        g.fillStyle(dark, 0.35); g.fillRect(0, 18, 26, 4);
-        g.lineStyle(1.2, INK, 0.3); g.strokeRoundedRect(0, 8, 26, 14, 4);
-        g.generateTexture(key, 26, 22);
+        g.fillStyle(0x000000, 0.1); g.fillEllipse(14, 24, 14, 4);
+        g.fillStyle(color); g.fillRoundedRect(1, 9, 28, 15, 4);
+        g.fillStyle(dark, 0.35); g.fillRect(1, 20, 28, 4);
+        g.fillStyle(color); g.fillRoundedRect(4, 2, 8, 9, 3); g.fillRoundedRect(17, 2, 8, 9, 3);
+        g.fillStyle(0xffffff, 0.25); g.fillRect(5, 3, 3, 4); g.fillRect(18, 3, 3, 4);
+        softStroke(g, () => g.strokeRoundedRect(1, 9, 28, 15, 4), INK, 0.28, 1.2);
+        g.generateTexture(key, 30, 26);
     };
-    lego('lego_red', 0xef6b6b, 0xc44a4a);
-    lego('lego_blue', 0x5b8fdb, 0x3d6fb4);
+    lego('lego_red', 0xf06a6a, 0xc04040);
+    lego('lego_blue', 0x5b96e8, 0x3a6ab8);
 
     g.clear();
-    g.fillStyle(0xb07cc8); g.fillRoundedRect(0, 8, 38, 8, 3);
-    g.fillStyle(0xf0e8f8); g.fillRect(34, 9, 3, 6);
-    g.fillStyle(0xf0a84a); g.fillRoundedRect(4, 0, 30, 8, 3);
-    g.fillStyle(0xfff4e0); g.fillRect(30, 1, 3, 6);
-    g.lineStyle(1.2, INK, 0.3);
-    g.strokeRoundedRect(0, 8, 38, 8, 3); g.strokeRoundedRect(4, 0, 30, 8, 3);
-    g.generateTexture('book', 38, 16);
+    g.fillStyle(0x000000, 0.1); g.fillEllipse(20, 20, 18, 4);
+    g.fillStyle(0xb07cd0); g.fillRoundedRect(1, 10, 40, 9, 3);
+    g.fillStyle(0xf4ecf8); g.fillRect(36, 11, 4, 7);
+    g.fillStyle(0xf0a84a); g.fillRoundedRect(5, 1, 32, 9, 3);
+    g.fillStyle(0xfff4e0); g.fillRect(32, 2, 4, 7);
+    softStroke(g, () => { g.strokeRoundedRect(1, 10, 40, 9, 3); g.strokeRoundedRect(5, 1, 32, 9, 3); }, INK, 0.25, 1.1);
+    g.generateTexture('book', 42, 22);
 
-    // ---------- estrela ----------
+    // ================= ESTRELA =================
     g.clear();
     const pts = [];
     for (let i = 0; i < 10; i++) {
         const ang = -Math.PI / 2 + i * Math.PI / 5;
-        const r = i % 2 === 0 ? 11 : 4.5;
-        pts.push({ x: 12 + Math.cos(ang) * r, y: 12 + Math.sin(ang) * r });
+        const r = i % 2 === 0 ? 13 : 5.2;
+        pts.push({ x: 14 + Math.cos(ang) * r, y: 14 + Math.sin(ang) * r });
     }
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(14, 24, 12, 4);
     g.fillStyle(0xffd66b); g.fillPoints(pts, true);
-    g.fillStyle(0xfff3b0, 0.7); g.fillCircle(12, 11, 3);
-    g.lineStyle(1.4, 0xd4a020, 0.5); g.strokePoints(pts, true);
-    g.generateTexture('star', 24, 24);
+    g.fillStyle(0xfff3b0, 0.8); g.fillCircle(12, 12, 4);
+    g.fillStyle(0xffffff, 0.55); g.fillCircle(11, 11, 1.8);
+    softStroke(g, () => g.strokePoints(pts, true), 0xc49020, 0.45, 1.5);
+    g.generateTexture('star', 28, 28);
 
-    // ---------- robô ----------
+    // ================= ROBÔ (chibi) =================
     g.clear();
-    g.fillStyle(0x6a7080); g.fillRoundedRect(2, 24, 30, 8, 4);
-    g.fillStyle(0x9aa3b0); g.fillCircle(8, 28, 3); g.fillCircle(17, 28, 3); g.fillCircle(26, 28, 3);
-    g.fillStyle(0xc5cdd8); g.fillRoundedRect(4, 8, 26, 16, 6);
-    g.fillStyle(0xe0e6ee, 0.6); g.fillRoundedRect(5, 9, 24, 5, 3);
-    g.fillStyle(0xffffff); g.fillEllipse(12, 15, 7, 8); g.fillEllipse(22, 15, 7, 8);
-    g.fillStyle(0xff6b7a); g.fillCircle(12, 16, 2.2); g.fillCircle(22, 16, 2.2);
-    g.fillStyle(0xffffff); g.fillCircle(11.3, 15.2, 0.8); g.fillCircle(21.3, 15.2, 0.8);
-    g.lineStyle(2, 0x8a92a0); g.lineBetween(17, 8, 17, 2);
-    g.fillStyle(0xff6b7a); g.fillCircle(17, 2, 2.5);
-    g.lineStyle(1.3, INK, 0.3); g.strokeRoundedRect(4, 8, 26, 16, 6);
-    g.generateTexture('robot', 34, 32);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(20, 38, 16, 5);
+    g.fillStyle(0x5a6070); g.fillRoundedRect(3, 28, 34, 10, 5);
+    g.fillStyle(0x9aa3b4); g.fillCircle(10, 33, 3.5); g.fillCircle(20, 33, 3.5); g.fillCircle(30, 33, 3.5);
+    g.fillStyle(0xc8d0dc); g.fillRoundedRect(5, 8, 30, 20, 8);
+    g.fillStyle(0xe8eef6, 0.7); g.fillRoundedRect(7, 10, 26, 7, 4);
+    g.fillStyle(0xffffff); g.fillEllipse(14, 17, 9, 10); g.fillEllipse(26, 17, 9, 10);
+    g.fillStyle(0xff6b7a); g.fillCircle(14, 18, 3); g.fillCircle(26, 18, 3);
+    g.fillStyle(0xffffff); g.fillCircle(13, 16.5, 1.2); g.fillCircle(25, 16.5, 1.2);
+    g.lineStyle(2.2, 0x8a92a4); g.lineBetween(20, 8, 20, 2);
+    g.fillStyle(0xff6b7a); g.fillCircle(20, 2, 3);
+    softStroke(g, () => g.strokeRoundedRect(5, 8, 30, 20, 8), INK, 0.28, 1.3);
+    g.generateTexture('robot', 40, 40);
 
-    // ---------- mola / plataforma ----------
+    // ================= MOLA / PLATAFORMA =================
     g.clear();
-    g.fillStyle(0xff8aab); g.fillRoundedRect(2, 4, 40, 12, 6);
-    g.fillStyle(0xffb3c9, 0.7); g.fillRoundedRect(3, 5, 38, 5, 4);
-    g.fillStyle(0xe06088); g.fillCircle(22, 10, 2.5);
-    g.fillStyle(0xd44d74, 0.6); g.fillRoundedRect(0, 15, 44, 3, 1);
-    g.generateTexture('cushion', 44, 18);
+    g.fillStyle(0x000000, 0.1); g.fillEllipse(24, 20, 22, 5);
+    g.fillStyle(0xff8aab); g.fillRoundedRect(2, 4, 44, 14, 7);
+    g.fillStyle(0xffc0d4, 0.75); g.fillRoundedRect(4, 5, 40, 6, 4);
+    g.fillStyle(0xe05080); g.fillCircle(24, 11, 3);
+    g.fillStyle(0xffffff, 0.35); g.fillCircle(22, 9, 1.2);
+    g.fillStyle(0xd44d74, 0.55); g.fillRoundedRect(0, 16, 48, 4, 2);
+    g.generateTexture('cushion', 48, 22);
 
     g.clear();
-    g.fillStyle(0xd4a86a); g.fillRoundedRect(0, 0, 96, 14, 6);
-    g.fillStyle(0xe8c48a, 0.7); g.fillRoundedRect(2, 1, 92, 5, 4);
-    g.fillStyle(0xb88848, 0.4); g.fillRect(2, 10, 92, 3);
-    g.fillStyle(0x8a8a96); g.fillCircle(10, 7, 2); g.fillCircle(86, 7, 2);
-    g.generateTexture('platform', 96, 14);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(56, 18, 50, 6);
+    g.fillStyle(0xd4a86a); g.fillRoundedRect(0, 0, 112, 16, 7);
+    g.fillStyle(0xecc890, 0.75); g.fillRoundedRect(3, 2, 106, 6, 4);
+    g.fillStyle(0xb88848, 0.4); g.fillRect(3, 12, 106, 3);
+    g.fillStyle(0x8a8a96); g.fillCircle(12, 8, 2.5); g.fillCircle(100, 8, 2.5);
+    softStroke(g, () => g.strokeRoundedRect(0, 0, 112, 16, 7), INK, 0.25, 1.3);
+    g.generateTexture('platform', 112, 20);
 
-    // ---------- HUD ----------
-    const heart = (key, color) => {
+    // ================= HUD / FX =================
+    const heart = (key, color, empty = false) => {
         g.clear();
-        g.fillStyle(color);
-        g.fillCircle(5, 6, 5); g.fillCircle(13, 6, 5);
-        g.fillTriangle(1, 9, 17, 9, 9, 17);
-        g.fillStyle(0xffffff, 0.45); g.fillCircle(5, 4.5, 1.6);
-        g.generateTexture(key, 18, 18);
+        if (empty) {
+            g.lineStyle(2, color, 0.7);
+            g.beginPath();
+            g.arc(7, 7, 5.5, Math.PI, 0, false);
+            g.arc(17, 7, 5.5, Math.PI, 0, false);
+            g.lineTo(12, 20);
+            g.closePath();
+            g.strokePath();
+        } else {
+            g.fillStyle(color);
+            g.fillCircle(7, 7, 6); g.fillCircle(17, 7, 6);
+            g.fillTriangle(2, 10, 22, 10, 12, 21);
+            g.fillStyle(0xffffff, 0.5); g.fillCircle(6, 5.5, 2);
+        }
+        g.generateTexture(key, 24, 22);
     };
     heart('heart', 0xff6b8a);
-    heart('heart_empty', 0xb0a8b8);
+    heart('heart_empty', 0xb0a8b8, true);
 
     g.clear();
-    g.fillStyle(0xffffff, 0.85); g.fillCircle(4, 4, 3.2);
-    g.generateTexture('dust', 8, 8);
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(5, 5, 4);
+    g.fillStyle(0xffffff, 0.35); g.fillCircle(4, 4, 1.8);
+    g.generateTexture('dust', 10, 10);
 
     g.clear();
-    g.fillStyle(0xfff0b0);
-    g.fillCircle(5.5, 5.5, 2.5);
-    g.fillStyle(0xffffff, 0.7); g.fillCircle(4.5, 4.5, 1);
-    g.generateTexture('spark', 11, 11);
+    g.fillStyle(0xfff0b0); g.fillCircle(7, 7, 3.5);
+    g.fillStyle(0xffffff, 0.85); g.fillCircle(5.5, 5.5, 1.5);
+    g.fillStyle(0xfff0b0, 0.4); g.fillCircle(7, 7, 6);
+    g.generateTexture('spark', 14, 14);
 
     g.clear();
-    g.fillStyle(0xffffff); g.fillRoundedRect(0, 0, 8, 5, 2);
-    g.generateTexture('confetti', 8, 5);
+    g.fillStyle(0xffffff); g.fillRoundedRect(0, 0, 10, 6, 2);
+    g.generateTexture('confetti', 10, 6);
 
-    // ---------- papel de parede (floral + listras suaves) ----------
+    // ================= PAPEL DE PAREDE (tile grande e rico) =================
     g.clear();
-    g.fillStyle(0xffffff, 0.08); g.fillRect(0, 0, 72, 72);
-    g.fillStyle(0xffffff, 0.18);
-    for (const [x, y] of [[14, 16], [48, 20], [30, 42], [56, 52], [10, 54], [40, 10]]) {
-        g.fillCircle(x, y, 2.4);
-        g.fillCircle(x - 3.5, y + 1, 1.5);
-        g.fillCircle(x + 3.5, y + 1, 1.5);
-        g.fillCircle(x, y + 3.5, 1.3);
+    g.fillStyle(0xffffff, 0.04); g.fillRect(0, 0, 96, 96);
+    // flores
+    const flowers = [[18, 20], [58, 24], [38, 52], [72, 60], [14, 68], [50, 14], [80, 40], [30, 78]];
+    for (const [fx, fy] of flowers) {
+        g.fillStyle(0xffffff, 0.16);
+        for (let k = 0; k < 5; k++) {
+            const a = (k / 5) * Math.PI * 2;
+            g.fillCircle(fx + Math.cos(a) * 4, fy + Math.sin(a) * 4, 2.2);
+        }
+        g.fillStyle(0xffe8a0, 0.2); g.fillCircle(fx, fy, 1.6);
     }
-    g.fillStyle(0x000000, 0.03);
-    g.fillRect(0, 0, 2, 72); g.fillRect(36, 0, 1, 72);
-    g.generateTexture('wallpaper', 72, 72);
+    // folhas
+    g.fillStyle(0xa8d0a0, 0.1);
+    g.fillEllipse(40, 36, 8, 4); g.fillEllipse(70, 72, 7, 3.5);
+    g.generateTexture('wallpaper', 96, 96);
 
-    // ---------- rodapé madeira ----------
+    // painel de parede (meia-parede)
     g.clear();
-    g.fillStyle(0xb89568); g.fillRect(0, 0, 64, 14);
-    g.fillStyle(0xd4b888, 0.55); g.fillRect(0, 0, 64, 4);
-    g.fillStyle(0x000000, 0.12); g.fillRect(0, 11, 64, 3);
-    g.fillStyle(0x8a6a40, 0.35); g.fillRect(0, 5, 64, 1);
-    g.generateTexture('wainscot', 64, 14);
+    gradientStrips(g, 0, 0, 64, 64, 0xf8f0e4, 0xe8d8c0, 12);
+    g.fillStyle(0x000000, 0.04); g.fillRect(0, 0, 2, 64);
+    g.fillStyle(0xffffff, 0.12); g.fillRect(2, 0, 1, 64);
+    g.generateTexture('wall_panel', 64, 64);
 
-    // ---------- chão de tábua (tile de fundo) ----------
+    // rodapé madeira detalhado
     g.clear();
-    g.fillStyle(0xc4a070); g.fillRect(0, 0, 96, 32);
-    g.fillStyle(0xd8b888, 0.35); g.fillRect(0, 0, 96, 6);
-    g.lineStyle(1, 0x8a6a40, 0.25);
-    g.lineBetween(0, 16, 96, 16);
-    g.lineBetween(32, 0, 32, 32); g.lineBetween(64, 0, 64, 32);
-    g.fillStyle(0x000000, 0.08); g.fillRect(0, 28, 96, 4);
-    g.generateTexture('floorboard', 96, 32);
+    g.fillStyle(0xb89568); g.fillRect(0, 0, 96, 20);
+    g.fillStyle(0xd8b888, 0.6); g.fillRect(0, 0, 96, 5);
+    g.fillStyle(0x8a6a40, 0.3); g.fillRect(0, 7, 96, 1.5);
+    g.fillStyle(0x000000, 0.14); g.fillRect(0, 16, 96, 4);
+    g.fillStyle(0xe8c898, 0.25); g.fillRect(0, 1, 96, 2);
+    g.generateTexture('wainscot', 96, 20);
 
-    // ---------- cortina ----------
+    // chão de tábua rico
     g.clear();
-    g.fillStyle(0xe07070); g.fillRoundedRect(0, 0, 36, 120, 4);
-    g.fillStyle(0xf09090, 0.5);
-    for (let i = 0; i < 4; i++) g.fillRect(4 + i * 8, 8, 4, 100);
-    g.fillStyle(0xc05050); g.fillRect(0, 0, 36, 10);
-    g.fillStyle(0xffd080); g.fillCircle(8, 6, 3); g.fillCircle(28, 6, 3);
-    g.generateTexture('curtain', 36, 120);
+    g.fillStyle(0xc4a070); g.fillRect(0, 0, 128, 48);
+    g.fillStyle(0xd8b888, 0.4); g.fillRect(0, 0, 128, 8);
+    g.lineStyle(1.2, 0x8a6a40, 0.28);
+    g.lineBetween(0, 16, 128, 16); g.lineBetween(0, 32, 128, 32);
+    g.lineBetween(32, 0, 32, 16); g.lineBetween(80, 16, 80, 32);
+    g.lineBetween(48, 32, 48, 48); g.lineBetween(100, 0, 100, 16);
+    g.fillStyle(0x000000, 0.1); g.fillRect(0, 42, 128, 6);
+    // veios
+    g.lineStyle(1, 0x9a7a48, 0.15);
+    g.lineBetween(8, 4, 28, 6); g.lineBetween(50, 20, 75, 18);
+    g.generateTexture('floorboard', 128, 48);
 
-    // ---------- janela realista (vidro + reflexo + sol) ----------
+    // cortina plissada
     g.clear();
-    g.fillStyle(0xa88860); g.fillRoundedRect(0, 0, 130, 150, 6);
+    g.fillStyle(0xd06060); g.fillRoundedRect(0, 0, 44, 140, 5);
+    for (let i = 0; i < 5; i++) {
+        g.fillStyle(i % 2 ? 0xe87878 : 0xc05050, 0.55);
+        g.fillRect(3 + i * 8, 12, 5, 118);
+    }
+    g.fillStyle(0xb04040); g.fillRect(0, 0, 44, 12);
+    g.fillStyle(0xffd080); g.fillCircle(10, 7, 3.5); g.fillCircle(34, 7, 3.5);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(22, 136, 18, 5);
+    g.generateTexture('curtain', 44, 140);
+
+    // janela grande (céu Ghibli)
+    g.clear();
+    // moldura
+    g.fillStyle(0xa88860); g.fillRoundedRect(0, 0, 150, 170, 8);
+    g.fillStyle(0xc4a878, 0.5); g.fillRect(4, 4, 142, 8);
     // céu
-    gradientStrips(g, 10, 12, 110, 126, 0x8ec8f0, 0xffe8c0, 14);
+    gradientStrips(g, 12, 14, 126, 140, 0x7ec0f0, 0xffe8b8, 16);
+    // colinas distantes
+    g.fillStyle(0xa8d088, 0.55); g.fillEllipse(40, 130, 50, 28);
+    g.fillStyle(0x88b868, 0.5); g.fillEllipse(110, 135, 55, 30);
     // nuvens
-    g.fillStyle(0xffffff, 0.55);
-    g.fillEllipse(40, 50, 28, 12); g.fillEllipse(55, 48, 18, 10);
-    g.fillEllipse(90, 90, 22, 10);
+    g.fillStyle(0xffffff, 0.6);
+    g.fillEllipse(45, 55, 32, 14); g.fillEllipse(60, 52, 20, 11);
+    g.fillEllipse(100, 95, 26, 12);
     // sol
-    g.fillStyle(0xffe08a, 0.85); g.fillCircle(100, 40, 14);
-    g.fillStyle(0xfff6c8, 0.5); g.fillCircle(100, 40, 8);
+    g.fillStyle(0xffe08a, 0.9); g.fillCircle(112, 42, 16);
+    g.fillStyle(0xfff8c8, 0.55); g.fillCircle(112, 42, 9);
     // travessas
-    g.fillStyle(0xa88860); g.fillRect(62, 12, 8, 126); g.fillRect(10, 72, 110, 8);
-    // reflexo vidro
-    g.fillStyle(0xffffff, 0.2);
-    g.fillRoundedRect(18, 20, 30, 40, 4);
+    g.fillStyle(0xa88860); g.fillRect(71, 14, 9, 140); g.fillRect(12, 80, 126, 9);
+    // reflexo
+    g.fillStyle(0xffffff, 0.22); g.fillRoundedRect(20, 22, 32, 45, 5);
     // peitoril
-    g.fillStyle(0xc4a070); g.fillRect(4, 138, 122, 10);
-    g.fillStyle(0x000000, 0.1); g.fillRect(4, 145, 122, 3);
-    g.lineStyle(1.5, INK, 0.25); g.strokeRoundedRect(0, 0, 130, 150, 6);
-    g.generateTexture('window', 130, 150);
+    g.fillStyle(0xc4a070); g.fillRect(4, 154, 142, 12);
+    g.fillStyle(0x000000, 0.12); g.fillRect(4, 162, 142, 4);
+    softStroke(g, () => g.strokeRoundedRect(0, 0, 150, 170, 8), INK, 0.28, 1.6);
+    g.generateTexture('window', 150, 170);
 
-    // ---------- sofá volumoso ----------
+    // moldura de teto / cornija
     g.clear();
-    g.fillStyle(0x000000, 0.12); g.fillEllipse(80, 72, 70, 10); // sombra
-    g.fillStyle(0xc87868); g.fillRoundedRect(14, 8, 132, 36, 12);
-    g.fillStyle(0xe09888, 0.55); g.fillRoundedRect(20, 12, 50, 14, 6);
-    g.fillStyle(0xd89080); g.fillRoundedRect(0, 36, 160, 30, 10);
-    g.fillStyle(0xc87868); g.fillRoundedRect(0, 28, 28, 44, 12); g.fillRoundedRect(132, 28, 28, 44, 12);
-    g.fillStyle(0xb06050, 0.35); g.fillRect(78, 40, 5, 20);
-    g.fillStyle(0xa08050); g.fillRect(16, 70, 12, 8); g.fillRect(132, 70, 12, 8);
-    g.fillStyle(0xf0d0c0, 0.4); g.fillEllipse(50, 48, 22, 10); g.fillEllipse(110, 48, 22, 10);
-    g.generateTexture('sofa', 160, 80);
+    g.fillStyle(0xf0e8d8); g.fillRect(0, 0, 96, 16);
+    g.fillStyle(0xffffff, 0.4); g.fillRect(0, 0, 96, 4);
+    g.fillStyle(0x000000, 0.08); g.fillRect(0, 12, 96, 4);
+    g.fillStyle(0xd8c8a8, 0.5); g.fillRect(0, 6, 96, 2);
+    g.generateTexture('crown', 96, 16);
 
-    // ---------- planta com vaso e folhas ----------
+    // ================= MÓVEIS =================
+    // sofá
     g.clear();
-    g.fillStyle(0x000000, 0.1); g.fillEllipse(28, 82, 18, 6);
-    g.fillStyle(0x4a8a58); g.fillEllipse(26, 28, 20, 18);
-    g.fillStyle(0x68b078); g.fillEllipse(12, 40, 16, 14); g.fillEllipse(40, 38, 16, 14);
-    g.fillStyle(0x3d7a4a); g.fillEllipse(26, 48, 14, 12);
-    g.fillStyle(0x88c898, 0.5); g.fillEllipse(20, 24, 8, 6);
-    g.fillStyle(0xc89860); g.fillRoundedRect(14, 56, 28, 28, { tl: 3, tr: 3, bl: 10, br: 10 });
-    g.fillStyle(0xa87840, 0.45); g.fillRect(14, 56, 28, 7);
-    g.fillStyle(0xe0c090, 0.3); g.fillRect(18, 64, 8, 12);
-    g.generateTexture('plant', 56, 88);
+    g.fillStyle(0x000000, 0.14); g.fillEllipse(90, 84, 78, 12);
+    g.fillStyle(0xc87868); g.fillRoundedRect(16, 8, 148, 40, 14);
+    g.fillStyle(0xe8a898, 0.5); g.fillRoundedRect(24, 14, 55, 16, 8);
+    g.fillStyle(0xd89080); g.fillRoundedRect(0, 40, 180, 34, 12);
+    g.fillStyle(0xc87868); g.fillRoundedRect(0, 32, 32, 48, 14); g.fillRoundedRect(148, 32, 32, 48, 14);
+    g.fillStyle(0xb06050, 0.3); g.fillRect(88, 46, 5, 22);
+    g.fillStyle(0xa08050); g.fillRect(18, 78, 14, 10); g.fillRect(148, 78, 14, 10);
+    g.fillStyle(0xf5d8c8, 0.45); g.fillEllipse(55, 54, 26, 12); g.fillEllipse(125, 54, 26, 12);
+    softStroke(g, () => g.strokeRoundedRect(0, 40, 180, 34, 12), INK, 0.2, 1.2);
+    g.generateTexture('sofa', 180, 90);
 
-    // ---------- abajur com glow ----------
+    // planta
     g.clear();
-    g.fillStyle(0xffe8b0, 0.25); g.fillEllipse(20, 28, 28, 20);
-    g.fillStyle(0xffd890); g.fillTriangle(4, 40, 36, 40, 30, 6);
-    g.fillTriangle(4, 40, 10, 6, 30, 6);
-    g.fillStyle(0xfff6d0, 0.45); g.fillTriangle(12, 36, 28, 36, 24, 12);
-    g.fillStyle(0x9090a0); g.fillRect(18, 40, 5, 50);
-    g.fillStyle(0xb0b0c0); g.fillRoundedRect(6, 90, 28, 8, 3);
-    g.generateTexture('lamp', 42, 100);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(32, 98, 22, 7);
+    g.fillStyle(0x4a8a58); g.fillEllipse(30, 30, 24, 22);
+    g.fillStyle(0x68b078); g.fillEllipse(12, 44, 18, 16); g.fillEllipse(48, 42, 18, 16);
+    g.fillStyle(0x3d7a4a); g.fillEllipse(30, 54, 16, 14);
+    g.fillStyle(0x88c898, 0.55); g.fillEllipse(22, 24, 10, 8);
+    g.fillStyle(0x2d6a3d, 0.4); g.fillEllipse(38, 48, 10, 8);
+    g.fillStyle(0xc89860); g.fillRoundedRect(16, 64, 32, 34, { tl: 4, tr: 4, bl: 12, br: 12 });
+    g.fillStyle(0xa87840, 0.5); g.fillRect(16, 64, 32, 8);
+    g.fillStyle(0xe0c090, 0.35); g.fillRect(20, 74, 10, 14);
+    g.generateTexture('plant', 64, 104);
 
-    // ---------- estante com livros e objetos ----------
+    // abajur
     g.clear();
-    g.fillStyle(0x000000, 0.1); g.fillEllipse(55, 142, 48, 8);
-    g.fillStyle(0xb89060); g.fillRoundedRect(0, 0, 110, 140, 5);
+    g.fillStyle(0xffe8b0, 0.3); g.fillEllipse(24, 32, 36, 26);
+    g.fillStyle(0xffd890); g.fillTriangle(4, 46, 44, 46, 36, 6);
+    g.fillTriangle(4, 46, 12, 6, 36, 6);
+    g.fillStyle(0xfff6d0, 0.5); g.fillTriangle(14, 42, 34, 42, 28, 14);
+    g.fillStyle(0x9090a0); g.fillRect(21, 46, 6, 56);
+    g.fillStyle(0xb0b0c0); g.fillRoundedRect(8, 102, 32, 10, 4);
+    g.fillStyle(0x000000, 0.1); g.fillEllipse(24, 112, 18, 5);
+    g.generateTexture('lamp', 48, 116);
+
+    // estante
+    g.clear();
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(62, 168, 52, 9);
+    g.fillStyle(0xb89060); g.fillRoundedRect(0, 0, 124, 164, 6);
     g.fillStyle(0x9a7848);
-    g.fillRect(8, 10, 94, 34); g.fillRect(8, 52, 94, 34); g.fillRect(8, 94, 94, 34);
-    const bookColors = [0xef7a7a, 0x6a9adb, 0xffd66b, 0x7aba6a, 0xb07cc8, 0xf0a84a, 0x70c0c0];
+    g.fillRect(10, 12, 104, 40); g.fillRect(10, 60, 104, 40); g.fillRect(10, 108, 104, 40);
+    const bookColors = [0xef7a7a, 0x6a9adb, 0xffd66b, 0x7aba6a, 0xb07cc8, 0xf0a84a, 0x70c0c0, 0xe89060];
     for (let shelfIdx = 0; shelfIdx < 3; shelfIdx++) {
-        const by = 10 + shelfIdx * 42;
-        for (let bi = 0; bi < 6; bi++) {
-            const h = 20 + (bi % 3) * 3;
-            g.fillStyle(bookColors[(bi + shelfIdx * 2) % bookColors.length]);
-            g.fillRoundedRect(12 + bi * 15, by + 30 - h, 11, h, 2);
-            g.fillStyle(0xffffff, 0.2); g.fillRect(13 + bi * 15, by + 30 - h, 3, h);
+        const by = 12 + shelfIdx * 48;
+        for (let bi = 0; bi < 7; bi++) {
+            const h = 22 + (bi % 4) * 3;
+            g.fillStyle(bookColors[(bi + shelfIdx * 3) % bookColors.length]);
+            g.fillRoundedRect(14 + bi * 14, by + 36 - h, 11, h, 2);
+            g.fillStyle(0xffffff, 0.22); g.fillRect(15 + bi * 14, by + 36 - h, 3, h);
         }
     }
-    g.fillStyle(0xd8b888, 0.4); g.fillRect(0, 0, 110, 6);
-    g.lineStyle(1.2, INK, 0.22); g.strokeRoundedRect(0, 0, 110, 140, 5);
-    g.generateTexture('shelf', 110, 144);
+    g.fillStyle(0xd8b888, 0.45); g.fillRect(0, 0, 124, 8);
+    softStroke(g, () => g.strokeRoundedRect(0, 0, 124, 164, 6), INK, 0.22, 1.3);
+    g.generateTexture('shelf', 124, 172);
 
-    // ---------- geladeira ----------
+    // geladeira
     g.clear();
-    g.fillStyle(0x000000, 0.1); g.fillEllipse(32, 122, 28, 6);
-    g.fillStyle(0xeef4f6); g.fillRoundedRect(0, 0, 64, 120, 8);
-    g.fillStyle(0xffffff, 0.5); g.fillRoundedRect(4, 4, 20, 100, 4);
-    g.fillStyle(0xd0dce0); g.fillRect(0, 48, 64, 5);
-    g.fillStyle(0xa8b4b8); g.fillRoundedRect(50, 16, 7, 22, 2); g.fillRoundedRect(50, 60, 7, 34, 2);
-    g.fillStyle(0x8ec8e8, 0.25); g.fillRoundedRect(8, 12, 36, 28, 4); // ímãs / papel
-    g.lineStyle(1.2, INK, 0.18); g.strokeRoundedRect(0, 0, 64, 120, 8);
-    g.generateTexture('fridge', 64, 124);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(36, 148, 30, 7);
+    g.fillStyle(0xeef4f6); g.fillRoundedRect(0, 0, 72, 144, 10);
+    g.fillStyle(0xffffff, 0.55); g.fillRoundedRect(5, 5, 22, 120, 5);
+    g.fillStyle(0xd0dce0); g.fillRect(0, 56, 72, 6);
+    g.fillStyle(0xa8b4b8); g.fillRoundedRect(56, 18, 8, 26, 3); g.fillRoundedRect(56, 72, 8, 40, 3);
+    g.fillStyle(0x8ec8e8, 0.3); g.fillRoundedRect(10, 14, 40, 32, 5);
+    g.fillStyle(0xffb0b0, 0.4); g.fillCircle(18, 80, 5);
+    g.fillStyle(0xb0e8b0, 0.4); g.fillCircle(30, 84, 4);
+    softStroke(g, () => g.strokeRoundedRect(0, 0, 72, 144, 10), INK, 0.18, 1.2);
+    g.generateTexture('fridge', 72, 152);
 
-    // ---------- mesa com toalha ----------
+    // mesa
     g.clear();
-    g.fillStyle(0x000000, 0.1); g.fillEllipse(65, 62, 55, 8);
-    g.fillStyle(0xc4a070); g.fillRoundedRect(0, 0, 130, 16, 5);
-    g.fillStyle(0xe8d0a0, 0.5); g.fillRect(2, 2, 126, 5);
-    g.fillStyle(0xf0e8d8, 0.7); g.fillRoundedRect(20, 4, 90, 10, 3); // toalha
-    g.fillStyle(0xa88850); g.fillRect(12, 16, 10, 46); g.fillRect(108, 16, 10, 46);
-    g.fillStyle(0xef7a7a); g.fillCircle(65, 8, 5); // fruteira
-    g.fillStyle(0xffd66b); g.fillCircle(72, 6, 4);
-    g.generateTexture('table', 130, 64);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(72, 72, 60, 9);
+    g.fillStyle(0xc4a070); g.fillRoundedRect(0, 0, 144, 18, 6);
+    g.fillStyle(0xe8d0a0, 0.55); g.fillRect(2, 2, 140, 6);
+    g.fillStyle(0xf5ecdc, 0.75); g.fillRoundedRect(22, 4, 100, 12, 4);
+    g.fillStyle(0xa88850); g.fillRect(14, 18, 12, 52); g.fillRect(118, 18, 12, 52);
+    g.fillStyle(0xef7a7a); g.fillCircle(70, 9, 6);
+    g.fillStyle(0xffd66b); g.fillCircle(78, 7, 5);
+    g.fillStyle(0x7aba6a); g.fillCircle(64, 6, 4);
+    g.generateTexture('table', 144, 72);
 
-    // ---------- caixa ----------
+    // caixa
     g.clear();
-    g.fillStyle(0x000000, 0.1); g.fillEllipse(32, 54, 28, 6);
-    g.fillStyle(0xd4b080); g.fillRoundedRect(0, 6, 64, 46, 5);
-    g.fillStyle(0xc09860); g.fillRect(0, 6, 64, 10);
-    g.fillStyle(0xead4a8); g.fillRect(28, 6, 8, 46);
-    g.fillStyle(0xb89058, 0.45); g.fillRoundedRect(8, 24, 18, 12, 2);
-    g.fillStyle(0xffffff, 0.25); g.fillRect(4, 10, 20, 4);
-    g.generateTexture('box', 64, 56);
+    g.fillStyle(0x000000, 0.12); g.fillEllipse(36, 62, 30, 7);
+    g.fillStyle(0xd4b080); g.fillRoundedRect(0, 8, 72, 52, 6);
+    g.fillStyle(0xc09860); g.fillRect(0, 8, 72, 12);
+    g.fillStyle(0xead4a8); g.fillRect(32, 8, 9, 52);
+    g.fillStyle(0xb89058, 0.5); g.fillRoundedRect(10, 28, 20, 14, 3);
+    g.fillStyle(0xffffff, 0.28); g.fillRect(6, 12, 22, 5);
+    softStroke(g, () => g.strokeRoundedRect(0, 8, 72, 52, 6), INK, 0.22, 1.2);
+    g.generateTexture('box', 72, 64);
 
-    // ---------- botão touch ----------
+    // botão touch
     g.clear();
-    g.fillStyle(0xffffff, 0.88); g.fillCircle(42, 42, 40);
-    g.lineStyle(3, 0x6b5344, 0.35); g.strokeCircle(42, 42, 40);
-    g.generateTexture('btn', 84, 84);
+    g.fillStyle(0xffffff, 0.9); g.fillCircle(44, 44, 42);
+    g.fillStyle(0x000000, 0.06); g.fillCircle(44, 48, 38);
+    softStroke(g, () => g.strokeCircle(44, 44, 42), INK, 0.3, 3);
+    g.generateTexture('btn', 88, 88);
 
-    // marcador de versão do pack
+    // marcador de versão
     g.clear(); g.fillStyle(0); g.fillRect(0, 0, 1, 1);
-    g.generateTexture('texpack_v4', 1, 1);
+    g.generateTexture('texpack_v5', 1, 1);
 
     g.destroy();
 }

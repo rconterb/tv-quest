@@ -10,12 +10,42 @@ const g = (n) => '#'.repeat(n);
 const d = (n) => '.'.repeat(n);
 
 export const THEMES = {
-    sala:       { name: 'Sala de Estar',  wallTop: 0xfff8ee, wallBottom: 0xe8c9a0, floor: 0xc4a06a, block: 'block_wood',   decor: ['sofa', 'plant', 'lamp', 'shelf'] },
-    quarto:     { name: 'Quarto',         wallTop: 0xf0f5ff, wallBottom: 0xb8cce8, floor: 0x6a8ec0, block: 'block_carpet', decor: ['shelf', 'box', 'plant', 'lamp'] },
-    cozinha:    { name: 'Cozinha',        wallTop: 0xf4faf6, wallBottom: 0xb8dcc8, floor: 0xd0ccc0, block: 'block_tile',   decor: ['fridge', 'table', 'plant', 'shelf'] },
-    corredor:   { name: 'Corredor',       wallTop: 0xfff4f6, wallBottom: 0xe8b8c8, floor: 0xc4a06a, block: 'block_wood',   decor: ['lamp', 'plant', 'shelf'] },
-    escritorio: { name: 'Escritório',     wallTop: 0xfaf6ec, wallBottom: 0xd8c8a8, floor: 0xa88858, block: 'block_desk',   decor: ['shelf', 'lamp', 'plant', 'table'] },
-    sotao:      { name: 'Sótão',          wallTop: 0x7a6e8a, wallBottom: 0x3a3048, floor: 0x6a5a50, block: 'block_attic',  decor: ['box', 'shelf', 'lamp'] }
+    sala: {
+        name: 'Sala de Estar',
+        wallTop: 0xfffaf2, wallBottom: 0xecd2a8, wallMid: 0xf5e6d0,
+        floor: 0xc4a06a, accent: 0xe8a070, block: 'block_wood',
+        decor: ['sofa', 'plant', 'lamp', 'shelf'], curtainTint: 0xe07070
+    },
+    quarto: {
+        name: 'Quarto',
+        wallTop: 0xf4f8ff, wallBottom: 0xb8cce8, wallMid: 0xd8e4f8,
+        floor: 0x6a8ec0, accent: 0x90b0e8, block: 'block_carpet',
+        decor: ['shelf', 'box', 'plant', 'lamp'], curtainTint: 0x7090d0
+    },
+    cozinha: {
+        name: 'Cozinha',
+        wallTop: 0xf6fbf7, wallBottom: 0xb8dcc8, wallMid: 0xd8eee0,
+        floor: 0xd0ccc0, accent: 0x80c0a0, block: 'block_tile',
+        decor: ['fridge', 'table', 'plant', 'shelf'], curtainTint: 0x70b090
+    },
+    corredor: {
+        name: 'Corredor',
+        wallTop: 0xfff6f8, wallBottom: 0xe8b8c8, wallMid: 0xf0d0d8,
+        floor: 0xc4a06a, accent: 0xe090a0, block: 'block_wood',
+        decor: ['lamp', 'plant', 'shelf'], curtainTint: 0xd07090
+    },
+    escritorio: {
+        name: 'Escritório',
+        wallTop: 0xfbf7ee, wallBottom: 0xd8c8a8, wallMid: 0xece0c8,
+        floor: 0xa88858, accent: 0xc0a070, block: 'block_desk',
+        decor: ['shelf', 'lamp', 'plant', 'table'], curtainTint: 0xb09060
+    },
+    sotao: {
+        name: 'Sótão',
+        wallTop: 0x8a7e98, wallBottom: 0x3a3048, wallMid: 0x5a4e68,
+        floor: 0x6a5a50, accent: 0xa08070, block: 'block_attic',
+        decor: ['box', 'shelf', 'lamp'], curtainTint: 0x706080
+    }
 };
 
 export const levels = [

@@ -66,7 +66,7 @@ export function createCharacterAnims(scene) {
     }
 }
 
-/** Escala no mundo — personagem bem legível (~100px de altura). */
-export const CHAR_DISPLAY_SCALE = 0.82;
+/** Escala no mundo — personagem bem legível (~110px de altura). */
+export const CHAR_DISPLAY_SCALE = 0.88;
 /** Hitbox proporcional ao tamanho visual. */
-export const CHAR_BODY = { width: 36, height: 64 };
+export const CHAR_BODY = { width: 38, height: 68 };

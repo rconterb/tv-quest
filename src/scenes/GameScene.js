@@ -138,82 +138,118 @@ export class GameScene extends Phaser.Scene {
 
     createBackground() {
         const th = this.theme;
+        const isDark = th.name === 'Sótão';
 
-        // parede aquarela profunda
-        const bg = this.add.graphics().setScrollFactor(0).setDepth(-40);
-        gradientStrips(bg, 0, 0, 960, 540, th.wallTop, th.wallBottom, 40);
+        // 1) parede — degradê aquarela em 3 faixas (topo / meio / base)
+        const bg = this.add.graphics().setScrollFactor(0).setDepth(-50);
+        gradientStrips(bg, 0, 0, 960, 220, th.wallTop, th.wallMid || th.wallBottom, 28);
+        gradientStrips(bg, 0, 210, 960, 200, th.wallMid || th.wallTop, th.wallBottom, 24);
+        gradientStrips(bg, 0, 400, 960, 140, th.wallBottom, th.floor || th.wallBottom, 16);
 
-        // luz do teto + vinheta suave nas bordas
-        const light = this.add.graphics().setScrollFactor(0).setDepth(-39);
-        light.fillStyle(0xffffff, 0.14);
-        light.fillEllipse(480, -10, 980, 180);
-        light.fillStyle(0x000000, 0.06);
-        light.fillRect(0, 0, 40, 540);
-        light.fillRect(920, 0, 40, 540);
+        // 2) luz do teto + vinheta cinematográfica
+        const light = this.add.graphics().setScrollFactor(0).setDepth(-49);
+        light.fillStyle(0xffffff, isDark ? 0.06 : 0.16);
+        light.fillEllipse(480, -20, 1100, 200);
+        // raios de luz suaves
+        if (!isDark) {
+            light.fillStyle(0xfff6d0, 0.04);
+            light.fillTriangle(200, 0, 320, 0, 280, 420);
+            light.fillTriangle(620, 0, 760, 0, 700, 400);
+        }
+        light.fillStyle(0x000000, isDark ? 0.18 : 0.07);
+        light.fillRect(0, 0, 50, 540);
+        light.fillRect(910, 0, 50, 540);
+        light.fillRect(0, 500, 960, 40);
 
-        // papel de parede
-        this.wallpaper = this.add.tileSprite(480, 240, 960, 380, 'wallpaper')
-            .setScrollFactor(0).setDepth(-35).setAlpha(0.16);
+        // 3) cornija do teto
+        this.crown = this.add.tileSprite(480, 8, 960, 16, 'crown')
+            .setScrollFactor(0).setDepth(-45).setAlpha(isDark ? 0.35 : 0.7);
 
-        // faixa de meia-parede (wainscot alto)
-        this.add.rectangle(480, 400, 960, 120, th.wallBottom, 0.35)
-            .setScrollFactor(0).setDepth(-34);
+        // 4) papel de parede floral
+        this.wallpaper = this.add.tileSprite(480, 200, 960, 320, 'wallpaper')
+            .setScrollFactor(0).setDepth(-44).setAlpha(isDark ? 0.08 : 0.2);
 
-        // rodapé de madeira
-        this.add.tileSprite(480, 458, 960, 18, 'wainscot')
-            .setScrollFactor(0).setDepth(-33).setAlpha(0.85);
+        // 5) painel / meia-parede
+        this.wallPanel = this.add.tileSprite(480, 390, 960, 140, 'wall_panel')
+            .setScrollFactor(0).setDepth(-43).setAlpha(isDark ? 0.25 : 0.45)
+            .setTint(th.wallMid || th.wallBottom);
 
-        // chão de tábua (parallax lento)
-        this.floorDecor = this.add.tileSprite(480, 500, 960, 80, 'floorboard')
-            .setScrollFactor(0).setDepth(-32).setAlpha(0.35).setTint(th.floor || 0xc4a070);
+        // 6) rodapé
+        this.add.tileSprite(480, 452, 960, 20, 'wainscot')
+            .setScrollFactor(0).setDepth(-42).setAlpha(isDark ? 0.5 : 0.9);
 
-        // janelas + cortinas + manchas de sol
-        const winCover = (this.worldW - 960) * 0.4 + 960;
-        for (let x = 200; x < winCover; x += 420) {
-            this.add.image(x, 148, 'window')
-                .setScrollFactor(0.28).setDepth(-20).setAlpha(0.95).setScale(0.9);
-            // cortinas dos lados
-            this.add.image(x - 58, 160, 'curtain')
-                .setScrollFactor(0.28).setDepth(-19).setAlpha(0.75).setScale(0.85);
-            this.add.image(x + 58, 160, 'curtain')
-                .setScrollFactor(0.28).setDepth(-19).setAlpha(0.75).setScale(0.85)
-                .setFlipX(true);
-            const sun = this.add.ellipse(x + 30, 400, 110, 28, 0xffe8a0, 0.14)
-                .setScrollFactor(0.32).setDepth(-18);
+        // 7) chão de tábua (parallax)
+        this.floorDecor = this.add.tileSprite(480, 505, 960, 90, 'floorboard')
+            .setScrollFactor(0).setDepth(-41).setAlpha(isDark ? 0.4 : 0.5)
+            .setTint(th.floor || 0xc4a06a);
+
+        // 8) janelas + cortinas + manchas de sol (mundo com parallax)
+        const winCover = (this.worldW - 960) * 0.42 + 960;
+        const curtainTint = th.curtainTint || 0xe07070;
+        for (let x = 180; x < winCover; x += 400) {
+            // glow atrás da janela
+            this.add.ellipse(x, 150, 160, 180, 0xfff0c0, isDark ? 0.06 : 0.1)
+                .setScrollFactor(0.22).setDepth(-28);
+
+            this.add.image(x, 142, 'window')
+                .setScrollFactor(0.25).setDepth(-26).setAlpha(0.96).setScale(0.88);
+
+            const c1 = this.add.image(x - 68, 155, 'curtain')
+                .setScrollFactor(0.25).setDepth(-25).setAlpha(0.82).setScale(0.88)
+                .setTint(curtainTint);
+            const c2 = this.add.image(x + 68, 155, 'curtain')
+                .setScrollFactor(0.25).setDepth(-25).setAlpha(0.82).setScale(0.88)
+                .setFlipX(true).setTint(curtainTint);
+
+            // leve balanço das cortinas
             this.tweens.add({
-                targets: sun, alpha: 0.06, scaleX: 1.08,
-                duration: 2600 + (x % 7) * 100,
+                targets: c1, scaleX: 0.92, duration: 2800 + (x % 5) * 200,
                 yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
             });
+            this.tweens.add({
+                targets: c2, scaleX: 0.92, duration: 3000 + (x % 7) * 150,
+                yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 400
+            });
+
+            // mancha de sol no chão
+            if (!isDark) {
+                const sun = this.add.ellipse(x + 40, 405, 130, 32, 0xffe8a0, 0.16)
+                    .setScrollFactor(0.3).setDepth(-24);
+                this.tweens.add({
+                    targets: sun, alpha: 0.07, scaleX: 1.1,
+                    duration: 2800 + (x % 9) * 80,
+                    yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+                });
+            }
         }
 
-        // móveis em camadas (mais densos, sombra no chão)
+        // 9) móveis densos com sombra
         const rand = this.seededRandom(this.levelIndex * 1000 + 7);
-        const decorCover = (this.worldW - 960) * 0.6 + 960;
-        for (let x = 120; x < decorCover; x += 200 + Math.floor(rand() * 90)) {
+        const decorCover = (this.worldW - 960) * 0.62 + 960;
+        for (let x = 100; x < decorCover; x += 180 + Math.floor(rand() * 100)) {
             const key = th.decor[Math.floor(rand() * th.decor.length)];
-            const sc = 0.9 + rand() * 0.25;
-            // sombra elíptica sob o móvel
-            this.add.ellipse(x, this.worldH - TILE + 4, 50 * sc, 10, 0x000000, 0.12)
-                .setScrollFactor(0.48).setDepth(-12);
+            const sc = 0.95 + rand() * 0.3;
+            this.add.image(x + 4, this.worldH - TILE + 6, 'shadow_soft')
+                .setOrigin(0.5, 0.5).setScrollFactor(0.45).setDepth(-14)
+                .setAlpha(0.35).setScale(sc * 0.9, 0.7);
             this.add.image(x, this.worldH - TILE + 2, key)
-                .setOrigin(0.5, 1).setScrollFactor(0.48).setDepth(-11)
-                .setAlpha(0.9).setScale(sc);
+                .setOrigin(0.5, 1).setScrollFactor(0.45).setDepth(-13)
+                .setAlpha(0.94).setScale(sc);
         }
 
-        // poeira de luz flutuando
+        // 10) poeira de luz (god rays dust)
         this.add.particles(0, 0, 'dust', {
             x: { min: 0, max: this.worldW },
-            y: { min: 60, max: 360 },
-            speedX: { min: -8, max: 8 },
-            speedY: { min: -12, max: -3 },
-            lifespan: { min: 4000, max: 7000 },
-            alpha: { start: 0.35, end: 0 },
-            scale: { start: 0.5, end: 0.15 },
-            frequency: 280,
+            y: { min: 40, max: 340 },
+            speedX: { min: -6, max: 6 },
+            speedY: { min: -14, max: -2 },
+            lifespan: { min: 4500, max: 8000 },
+            alpha: { start: isDark ? 0.2 : 0.4, end: 0 },
+            scale: { start: 0.55, end: 0.12 },
+            frequency: 220,
             blendMode: 'ADD',
-            tint: [0xffffff, 0xfff3c0, 0xd0e8ff]
-        }).setDepth(-8).setScrollFactor(0.2);
+            tint: isDark ? [0xc8b0e0, 0xffffff] : [0xffffff, 0xfff3c0, 0xd0e8ff]
+        }).setDepth(-7).setScrollFactor(0.18);
     }
 
     seededRandom(seed) {
@@ -234,12 +270,20 @@ export class GameScene extends Phaser.Scene {
                 const floorY = this.offsetY + (r + 1) * TILE; // base da célula
 
                 switch (ch) {
-                    case '#':
-                        this.platforms.create(cx, cy, this.theme.block);
+                    case '#': {
+                        const block = this.platforms.create(cx, cy, this.theme.block);
+                        // sombra sob o bloco (profundidade)
+                        this.add.image(cx + 2, cy + TILE * 0.42, 'shadow_soft')
+                            .setDepth(1).setAlpha(0.22).setScale(0.55, 0.45);
+                        block.setDepth(2);
                         break;
+                    }
                     case 'T': {
-                        const tv = this.tvGroup.create(cx + 10, floorY - 37, 'tv_off');
+                        this.add.image(cx + 12, floorY - 2, 'shadow_soft')
+                            .setDepth(2).setAlpha(0.3).setScale(0.7, 0.5);
+                        const tv = this.tvGroup.create(cx + 10, floorY - 40, 'tv_off');
                         tv.body.setSize(60, 60);
+                        tv.setDepth(3);
                         this.tvSprite = tv;
                         break;
                     }
@@ -322,22 +366,26 @@ export class GameScene extends Phaser.Scene {
     // ---------- HUD ----------
 
     createHud(lvl) {
+        // barra superior semi-transparente
+        this.add.rectangle(480, 22, 960, 48, 0x2a2018, 0.28)
+            .setScrollFactor(0).setDepth(99);
+
         this.heartIcons = [];
         for (let i = 0; i < 3; i++) {
             this.heartIcons.push(
-                this.add.image(26 + i * 26, 26, 'heart').setScrollFactor(0).setDepth(100)
+                this.add.image(30 + i * 28, 24, 'heart').setScrollFactor(0).setDepth(100).setScale(1.05)
             );
         }
 
-        this.add.image(120, 26, 'star').setScrollFactor(0).setDepth(100).setScale(0.9);
-        this.starText = this.add.text(136, 26, `0/${lvl.totalStars}`, {
-            fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff',
-            stroke: '#22223b', strokeThickness: 4
+        this.add.image(128, 24, 'star').setScrollFactor(0).setDepth(100).setScale(0.95);
+        this.starText = this.add.text(146, 24, `0/${lvl.totalStars}`, {
+            fontSize: '18px', fontFamily: 'Georgia, serif', fontStyle: 'bold', color: '#fff8e8',
+            stroke: '#4a3020', strokeThickness: 4
         }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(100);
 
         this.add.text(480, 22, `Fase ${this.levelIndex + 1}/10 — ${lvl.title}`, {
-            fontSize: '16px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffffff',
-            stroke: '#22223b', strokeThickness: 4
+            fontSize: '17px', fontFamily: 'Georgia, serif', fontStyle: 'bold', color: '#fff8e8',
+            stroke: '#4a3020', strokeThickness: 4
         }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(100);
 
         const save = loadSave();
@@ -361,12 +409,12 @@ export class GameScene extends Phaser.Scene {
 
     showIntroBanner(lvl) {
         const banner = this.add.container(480, -70).setScrollFactor(0).setDepth(110);
-        const bgRect = this.add.rectangle(0, 0, 560, 78, 0x22223b, 0.88).setStrokeStyle(3, 0xffd23f);
+        const bgRect = this.add.rectangle(0, 0, 580, 82, 0x3a2a1c, 0.9).setStrokeStyle(3, 0xe8b050);
         const title = this.add.text(0, -16, `Fase ${this.levelIndex + 1}: ${lvl.title}`, {
-            fontSize: '22px', fontFamily: 'monospace', fontStyle: 'bold', color: '#ffd23f'
+            fontSize: '22px', fontFamily: 'Georgia, serif', fontStyle: 'bold', color: '#ffd66b'
         }).setOrigin(0.5);
         const tip = this.add.text(0, 14, lvl.tip, {
-            fontSize: '15px', fontFamily: 'monospace', color: '#ffffff'
+            fontSize: '15px', fontFamily: 'Georgia, serif', color: '#fff8e8'
         }).setOrigin(0.5);
         banner.add([bgRect, title, tip]);
         this.tweens.add({
@@ -516,12 +564,12 @@ export class GameScene extends Phaser.Scene {
         // parallax de camadas de fundo
         const scr = this.cameras.main.scrollX;
         if (this.wallpaper) {
-            this.wallpaper.tilePositionX = scr * 0.1;
-            this.wallpaper.tilePositionY = this.cameras.main.scrollY * 0.05;
+            this.wallpaper.tilePositionX = scr * 0.08;
+            this.wallpaper.tilePositionY = this.cameras.main.scrollY * 0.04;
         }
-        if (this.floorDecor) {
-            this.floorDecor.tilePositionX = scr * 0.18;
-        }
+        if (this.wallPanel) this.wallPanel.tilePositionX = scr * 0.12;
+        if (this.crown) this.crown.tilePositionX = scr * 0.05;
+        if (this.floorDecor) this.floorDecor.tilePositionX = scr * 0.2;
 
         // caiu do mundo
         if (this.player.y > this.worldH + 80) this.die(true);

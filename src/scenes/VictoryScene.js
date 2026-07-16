@@ -17,9 +17,13 @@ export class VictoryScene extends Phaser.Scene {
         Sound.victory();
 
         const bg = this.add.graphics();
-        gradientStrips(bg, 0, 0, 960, 540, 0xfff6e8, 0xd8b890, 32);
+        gradientStrips(bg, 0, 0, 960, 220, 0xfffaf2, 0xf5e6d0, 24);
+        gradientStrips(bg, 0, 210, 960, 200, 0xf5e6d0, 0xe0c090, 20);
+        gradientStrips(bg, 0, 400, 960, 140, 0xe0c090, 0xc4a06a, 14);
+        this.add.tileSprite(480, 200, 960, 280, 'wallpaper').setAlpha(0.15);
+        this.add.tileSprite(480, 505, 960, 80, 'floorboard').setAlpha(0.4).setTint(0xc4a06a);
 
-        const glow = this.add.circle(480, 210, 160, 0xfff0b0, 0.28);
+        const glow = this.add.circle(480, 210, 170, 0xfff0b0, 0.32);
         this.tweens.add({
             targets: glow, alpha: 0.06, scale: 1.3,
             duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
