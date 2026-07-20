@@ -515,40 +515,32 @@ export class GameScene extends Phaser.Scene {
         const right = this.keys.RIGHT.isDown || this.keys.D.isDown || this.rightPressed;
         const grounded = body.touching.down || body.blocked.down;
 
-        // ---------- movimento horizontal (aceleração + freio manuais) ----------
-        // drag do body fica em 0; controlamos aqui para ar ≠ chão e virada snappy
+        // ---------- movimento horizontal (velocidade direta — mais confiável) ----------
         body.setDragX(0);
         body.setAccelerationX(0);
 
         const inputDir = left && !right ? -1 : (right && !left ? 1 : 0);
-        const vx = body.velocity.x;
+        let vx = body.velocity.x;
+        const targetVx = inputDir * PHYS.maxSpeed;
 
         if (inputDir !== 0) {
-            const reversing = Math.sign(vx) === -inputDir && Math.abs(vx) > 40;
-            let accel = grounded
+            const reversing = Math.sign(vx) === -inputDir && Math.abs(vx) > 30;
+            const accel = grounded
                 ? (reversing ? PHYS.turnAccel : PHYS.groundAccel)
                 : PHYS.airAccel;
-            // se já está acima da maxSpeed (knockback etc.), não acelera mais na mesma direção
-            if (Math.sign(vx) === inputDir && Math.abs(vx) >= PHYS.maxSpeed) {
-                body.setVelocityX(inputDir * PHYS.maxSpeed);
-            } else {
-                body.setAccelerationX(inputDir * accel);
-            }
+            const step = accel * dt;
+            if (vx < targetVx) vx = Math.min(vx + step, targetVx);
+            else if (vx > targetVx) vx = Math.max(vx - step, targetVx);
+            body.setVelocityX(vx);
         } else {
-            // freio: forte no chão, leve no ar (preserva momentum do pulo)
+            // freio: forte no chão, leve no ar
             const drag = grounded ? PHYS.groundDrag : PHYS.airDrag;
-            if (Math.abs(vx) < PHYS.stopThreshold && grounded) {
+            const decel = drag * dt;
+            if (Math.abs(vx) <= Math.max(decel, PHYS.stopThreshold) && grounded) {
                 body.setVelocityX(0);
             } else if (vx !== 0) {
-                const decel = drag * dt;
-                const nv = Math.abs(vx) <= decel ? 0 : vx - Math.sign(vx) * decel;
-                body.setVelocityX(nv);
+                body.setVelocityX(vx > 0 ? Math.max(0, vx - decel) : Math.min(0, vx + decel));
             }
-        }
-
-        // cap de velocidade horizontal (não mexe no Y)
-        if (Math.abs(body.velocity.x) > PHYS.maxSpeed) {
-            body.setVelocityX(Math.sign(body.velocity.x) * PHYS.maxSpeed);
         }
 
         // ---------- pulo: coyote + buffer + altura variável + duplo ----------
