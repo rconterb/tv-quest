@@ -36,7 +36,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         // drag aplicado manualmente no update (diferente no ar / chão)
         this.body.setDragX(0);
         this.body.setMaxVelocity(PHYS.maxSpeed, 980);
-        this.body.setMaxSpeed(0); // desliga limite radial; usamos maxVelocity
+        // Phaser 3.80: maxSpeed 0 CONGELA o body — só valor negativo desliga o limite radial
+        this.body.setMaxSpeed(-1);
 
         this.animTime = 0;
         this.facing = 1;
