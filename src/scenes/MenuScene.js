@@ -108,13 +108,15 @@ export class MenuScene extends Phaser.Scene {
             this.musicBtn.setText(`♪ Música: ${on ? 'SIM' : 'NÃO'}`);
             this.musicBtn.setColor(on ? '#80ed99' : '#8888aa');
             Sound.click();
-            if (on) Music.start(0); // preview: classic rock no menu
+            if (on) Music.start(0); // preview da 1ª trilha no menu
             else Music.stop();
         });
 
         this.input.once('pointerdown', () => {
             Sound.init();
             Sound.resume();
+            // pré-carrega MP3s de rock no primeiro clique (política de autoplay)
+            Music.preload();
         });
     }
 

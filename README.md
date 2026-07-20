@@ -25,7 +25,7 @@ Personagens em **sprites estilo Ghibli** (arte embutida). Cenário, inimigos e U
 - Física fluida: *coyote time*, *jump buffering*, altura de pulo variável, hang no ápice e freio diferente no ar/chão
 - Fases com dificuldade progressiva e gaps calibrados ao alcance real do pulo (nada impossível de alcançar)
 - Progresso salvo no navegador (fases desbloqueadas + estrelas por fase)
-- Música chiptune em loop com botão de mudo
+- Trilha **rock real** (MP3 em loop, 4 faixas que alternam pelas fases) + botão de mudo
 
 ## Jogar online
 
@@ -54,12 +54,26 @@ src/levels.js               Dados das 10 fases + temas dos cômodos
 src/textures.js             Pixel art procedural do cenário
 src/sprites.js              Preload e animações dos personagens
 src/objects.js              Player (sprites) e Robot
-src/audio.js                Efeitos e música (Web Audio)
+src/audio.js                Efeitos (Web Audio) + trilha rock (MP3)
 src/save.js                 Progresso no localStorage
 src/scenes/MenuScene.js     Título, escolha de personagem e fases
 src/scenes/GameScene.js     Gameplay
 src/scenes/VictoryScene.js  Tela final
+assets/music/               Loops de rock (MP3)
 ```
+
+## Créditos da música
+
+Loops royalty-free via [OpenGameArt](https://opengameart.org/):
+
+| Arquivo | Faixa | Licença |
+|---------|-------|---------|
+| `rock_strut.mp3` | *Strut* — Snabisch | CC0 |
+| `rock_drive.mp3` | *Background Music (LOOP)* — Pro Sensory | CC0 |
+| `rock_survival.mp3` | *The Survival* — PlayOnLoop | [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| `rock_halloween.mp3` | *Halloween Rock'n'Roll* — PlayOnLoop | [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+
+Efeitos sonoros continuam sintetizados em Web Audio.
 
 Legenda dos mapas (em `src/levels.js`): `#` bloco, `T` TV (objetivo), `t` tênis, `l` lego, `b` livros, `c` estrela, `r` robô, `s` mola, `m`/`v` plataforma móvel (horizontal/vertical), `P` spawn do jogador.
 
