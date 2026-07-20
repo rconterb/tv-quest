@@ -21,7 +21,7 @@ function softStroke(g, drawFn, color = INK, alpha = 0.28, width = 1.6) {
 }
 
 export function generateTextures(scene) {
-    if (scene.textures.exists('texpack_v5')) return;
+    if (scene.textures.exists('texpack_v6')) return;
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
     const T = TILE;
 
@@ -130,38 +130,157 @@ export function generateTextures(scene) {
     tv('tv_off', false);
     tv('tv_on', true);
 
-    // ================= PERIGOS =================
-    g.clear();
-    g.fillStyle(0x000000, 0.12); g.fillEllipse(24, 22, 20, 5);
-    g.fillStyle(0xe85a4f); g.fillRoundedRect(2, 5, 38, 14, { tl: 10, tr: 5, bl: 2, br: 2 });
-    g.fillRoundedRect(26, 1, 20, 18, 9);
-    g.fillStyle(0xff8a7a, 0.45); g.fillRoundedRect(6, 7, 18, 5, 3);
-    g.fillStyle(0xf8f4ec); g.fillRoundedRect(1, 16, 46, 8, { bl: 5, br: 5, tl: 0, tr: 0 });
-    g.fillStyle(0xffffff, 0.7); g.fillRect(8, 9, 3, 4); g.fillRect(15, 9, 3, 4);
-    softStroke(g, () => g.strokeRoundedRect(1, 1, 46, 22, 6), INK, 0.3, 1.3);
-    g.generateTexture('sneaker', 48, 26);
+    // ================= PERIGOS (bem legíveis, estilo cartoon) =================
 
-    const lego = (key, color, dark) => {
+    // --- TÊNIS fedido (perfil, bico à direita) + espaço p/ fumacinha ---
+    // canvas maior pra detalhe; origem do hazard é base
+    {
+        const W = 64, H = 40;
         g.clear();
-        g.fillStyle(0x000000, 0.1); g.fillEllipse(14, 24, 14, 4);
-        g.fillStyle(color); g.fillRoundedRect(1, 9, 28, 15, 4);
-        g.fillStyle(dark, 0.35); g.fillRect(1, 20, 28, 4);
-        g.fillStyle(color); g.fillRoundedRect(4, 2, 8, 9, 3); g.fillRoundedRect(17, 2, 8, 9, 3);
-        g.fillStyle(0xffffff, 0.25); g.fillRect(5, 3, 3, 4); g.fillRect(18, 3, 3, 4);
-        softStroke(g, () => g.strokeRoundedRect(1, 9, 28, 15, 4), INK, 0.28, 1.2);
-        g.generateTexture(key, 30, 26);
-    };
-    lego('lego_red', 0xf06a6a, 0xc04040);
-    lego('lego_blue', 0x5b96e8, 0x3a6ab8);
+        // sombra
+        g.fillStyle(0x000000, 0.16); g.fillEllipse(32, 36, 34, 8);
+        // sola branca/creme com perfil de tênis
+        g.fillStyle(0xf2ebe0);
+        g.fillRoundedRect(4, 26, 52, 9, { tl: 3, tr: 6, bl: 4, br: 8 });
+        // sulcos da sola
+        g.fillStyle(0xd8cfc0, 0.9);
+        g.fillRect(10, 31, 6, 2); g.fillRect(20, 31, 6, 2);
+        g.fillRect(30, 31, 6, 2); g.fillRect(40, 31, 6, 2);
+        g.fillStyle(0xc8bfb0, 0.7); g.fillRect(6, 33, 48, 1.5);
+        // cabedal vermelho
+        g.fillStyle(0xe23b3b);
+        g.fillRoundedRect(6, 14, 40, 14, { tl: 8, tr: 4, bl: 2, br: 2 });
+        // bico arredondado
+        g.fillStyle(0xe23b3b);
+        g.fillEllipse(48, 22, 18, 14);
+        // lateral com painel mais claro
+        g.fillStyle(0xff6a5a, 0.55);
+        g.fillRoundedRect(12, 16, 22, 8, 4);
+        // faixa branca lateral (estilo sneaker)
+        g.fillStyle(0xffffff, 0.92);
+        g.fillRoundedRect(14, 20, 26, 3.5, 2);
+        // costura
+        g.lineStyle(1, 0xffffff, 0.45);
+        g.strokeRoundedRect(8, 15, 36, 12, 6);
+        // cadarço / língua
+        g.fillStyle(0xc42828);
+        g.fillRoundedRect(18, 8, 14, 8, 3);
+        g.fillStyle(0xffffff, 0.95);
+        g.fillRect(20, 11, 10, 1.6);
+        g.fillRect(20, 14, 10, 1.6);
+        // ilhós
+        g.fillStyle(0xffd080);
+        g.fillCircle(22, 12, 1.4); g.fillCircle(28, 12, 1.4);
+        g.fillCircle(22, 15, 1.4); g.fillCircle(28, 15, 1.4);
+        // logo bolinha
+        g.fillStyle(0xffffff, 0.85); g.fillCircle(44, 20, 3.2);
+        g.fillStyle(0xe23b3b, 0.9); g.fillCircle(44, 20, 1.6);
+        // highlight
+        g.fillStyle(0xffffff, 0.28); g.fillEllipse(18, 17, 10, 4);
+        // contorno
+        softStroke(g, () => {
+            g.strokeRoundedRect(4, 26, 52, 9, 5);
+            g.strokeRoundedRect(6, 14, 40, 14, 6);
+        }, INK, 0.35, 1.4);
+        // --- fumacinha verde de chulé (estática no sprite; animamos partículas em runtime) ---
+        g.fillStyle(0x6ee06a, 0.22); g.fillEllipse(22, 6, 14, 8);
+        g.fillStyle(0x4ecf48, 0.28); g.fillCircle(18, 5, 4.5);
+        g.fillStyle(0x7dff78, 0.2); g.fillCircle(26, 3, 3.5);
+        g.fillStyle(0x3aaa40, 0.18); g.fillCircle(22, 2, 2.5);
+        g.fillStyle(0xa8f0a0, 0.35); g.fillCircle(16, 7, 2);
+        g.fillStyle(0xa8f0a0, 0.3); g.fillCircle(28, 5, 1.8);
+        g.generateTexture('sneaker', W, H);
+    }
 
+    // partícula de fedor (reutilizada no GameScene)
     g.clear();
-    g.fillStyle(0x000000, 0.1); g.fillEllipse(20, 20, 18, 4);
-    g.fillStyle(0xb07cd0); g.fillRoundedRect(1, 10, 40, 9, 3);
-    g.fillStyle(0xf4ecf8); g.fillRect(36, 11, 4, 7);
-    g.fillStyle(0xf0a84a); g.fillRoundedRect(5, 1, 32, 9, 3);
-    g.fillStyle(0xfff4e0); g.fillRect(32, 2, 4, 7);
-    softStroke(g, () => { g.strokeRoundedRect(1, 10, 40, 9, 3); g.strokeRoundedRect(5, 1, 32, 9, 3); }, INK, 0.25, 1.1);
-    g.generateTexture('book', 42, 22);
+    g.fillStyle(0x5fd85a, 0.85); g.fillCircle(6, 6, 5);
+    g.fillStyle(0xb8ffb0, 0.7); g.fillCircle(4.5, 4.5, 2.2);
+    g.fillStyle(0x3a9a3a, 0.35); g.fillCircle(8, 8, 2);
+    g.generateTexture('stink', 12, 12);
+
+    // --- LEGO 2×2 bem reconhecível (isométrico leve) ---
+    const lego = (key, color, mid, dark, studLight) => {
+        const W = 44, H = 36;
+        g.clear();
+        // sombra
+        g.fillStyle(0x000000, 0.14); g.fillEllipse(22, 32, 22, 6);
+        // corpo do tijolo (perspectiva simples: topo + frente + lado)
+        // lado direito
+        g.fillStyle(dark);
+        g.fillPoints([
+            { x: 36, y: 12 }, { x: 42, y: 15 }, { x: 42, y: 28 }, { x: 36, y: 25 }
+        ], true);
+        // frente
+        g.fillStyle(color);
+        g.fillRoundedRect(4, 14, 32, 14, 2);
+        // sombra na base da frente
+        g.fillStyle(dark, 0.45); g.fillRect(4, 24, 32, 4);
+        // topo
+        g.fillStyle(mid);
+        g.fillPoints([
+            { x: 4, y: 14 }, { x: 10, y: 8 }, { x: 42, y: 8 }, { x: 36, y: 14 }
+        ], true);
+        // linha de junção topo/frente
+        g.lineStyle(1.2, dark, 0.5); g.lineBetween(4, 14, 36, 14);
+        // pinos (studs) 2×2
+        const studs = [[14, 9], [28, 9], [12, 12], [26, 12]];
+        for (const [sx, sy] of studs) {
+            // corpo do pino
+            g.fillStyle(dark, 0.5); g.fillEllipse(sx + 0.5, sy + 3.5, 8, 3.5);
+            g.fillStyle(color); g.fillEllipse(sx, sy + 1.5, 8, 4.5);
+            g.fillStyle(mid); g.fillEllipse(sx, sy, 8, 4.5);
+            // brilho no pino
+            g.fillStyle(studLight, 0.7); g.fillEllipse(sx - 1.2, sy - 0.6, 3.2, 1.8);
+            softStroke(g, () => g.strokeEllipse(sx, sy, 8, 4.5), INK, 0.25, 1);
+        }
+        // highlight frontal
+        g.fillStyle(0xffffff, 0.22); g.fillRect(7, 16, 4, 8);
+        // logo gravado fake
+        g.fillStyle(dark, 0.25); g.fillRoundedRect(14, 18, 12, 4, 1);
+        softStroke(g, () => {
+            g.strokeRoundedRect(4, 14, 32, 14, 2);
+        }, INK, 0.32, 1.3);
+        g.generateTexture(key, W, H);
+    };
+    lego('lego_red', 0xe53935, 0xff6b65, 0xb71c1c, 0xffcdd2);
+    lego('lego_blue', 0x1e88e5, 0x64b5f6, 0x0d47a1, 0xbbdefb);
+    lego('lego_yellow', 0xfdd835, 0xffee58, 0xf9a825, 0xfff9c4);
+    lego('lego_green', 0x43a047, 0x66bb6a, 0x2e7d32, 0xc8e6c9);
+
+    // --- PILHA DE LIVROS (3 livros, bem legível) ---
+    {
+        const W = 52, H = 34;
+        g.clear();
+        g.fillStyle(0x000000, 0.14); g.fillEllipse(26, 30, 28, 7);
+        // livro de baixo (azul)
+        g.fillStyle(0x3d6fb8); g.fillRoundedRect(4, 20, 44, 10, 2);
+        g.fillStyle(0x2a4f8a); g.fillRect(4, 27, 44, 3);
+        g.fillStyle(0xe8eef8); g.fillRect(44, 21, 3, 7); // páginas
+        g.fillStyle(0xffd66b); g.fillRect(8, 22, 14, 2); // título
+        // livro do meio (verde)
+        g.fillStyle(0x3d9a5c); g.fillRoundedRect(6, 12, 40, 10, 2);
+        g.fillStyle(0x2a7040); g.fillRect(6, 19, 40, 3);
+        g.fillStyle(0xeef8f0); g.fillRect(42, 13, 3, 7);
+        g.fillStyle(0xfff3b0); g.fillRect(10, 14, 12, 2);
+        // livro de cima (laranja/vermelho)
+        g.fillStyle(0xe85a3a); g.fillRoundedRect(8, 4, 36, 10, 2);
+        g.fillStyle(0xb83a20); g.fillRect(8, 11, 36, 3);
+        g.fillStyle(0xfff0e8); g.fillRect(40, 5, 3, 7);
+        g.fillStyle(0xffffff, 0.85); g.fillRect(12, 6, 16, 2);
+        g.fillStyle(0xffffff, 0.5); g.fillRect(12, 9, 10, 1.5);
+        // lombadas com linhas
+        g.lineStyle(1, 0xffffff, 0.25);
+        g.lineBetween(6, 22, 6, 28); g.lineBetween(8, 14, 8, 20); g.lineBetween(10, 6, 10, 12);
+        // highlights
+        g.fillStyle(0xffffff, 0.2); g.fillRect(10, 5, 3, 7);
+        softStroke(g, () => {
+            g.strokeRoundedRect(4, 20, 44, 10, 2);
+            g.strokeRoundedRect(6, 12, 40, 10, 2);
+            g.strokeRoundedRect(8, 4, 36, 10, 2);
+        }, INK, 0.3, 1.2);
+        g.generateTexture('book', W, H);
+    }
 
     // ================= ESTRELA =================
     g.clear();
@@ -445,9 +564,9 @@ export function generateTextures(scene) {
     softStroke(g, () => g.strokeCircle(44, 44, 42), INK, 0.3, 3);
     g.generateTexture('btn', 88, 88);
 
-    // marcador de versão
+    // marcador de versão (subir para forçar regenerar texturas)
     g.clear(); g.fillStyle(0); g.fillRect(0, 0, 1, 1);
-    g.generateTexture('texpack_v5', 1, 1);
+    g.generateTexture('texpack_v6', 1, 1);
 
     g.destroy();
 }

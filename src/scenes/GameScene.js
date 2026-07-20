@@ -287,8 +287,12 @@ export class GameScene extends Phaser.Scene {
                         this.tvSprite = tv;
                         break;
                     }
-                    case 't': this.addHazard(cx, floorY, 'sneaker'); break;
-                    case 'l': this.addHazard(cx, floorY, Math.random() < 0.5 ? 'lego_red' : 'lego_blue'); break;
+                    case 't': this.addHazard(cx, floorY, 'sneaker', true); break;
+                    case 'l': {
+                        const legos = ['lego_red', 'lego_blue', 'lego_yellow', 'lego_green'];
+                        this.addHazard(cx, floorY, legos[(col + r) % legos.length]);
+                        break;
+                    }
                     case 'b': this.addHazard(cx, floorY, 'book'); break;
                     case 'c': {
                         const star = this.stars.create(cx, cy, 'star');
@@ -364,13 +368,36 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    addHazard(cx, floorY, key) {
+    addHazard(cx, floorY, key, stinky = false) {
         const h = this.hazards.create(cx, floorY, key);
         h.setOrigin(0.5, 1);
-        h.body.setSize(h.width * 0.7, h.height * 0.7);
-        // static body precisa ser reposicionado após mudar a origem
+        h.setDepth(3);
+
+        // escala visual primeiro (mais legível em tela)
+        if (key === 'sneaker') h.setScale(1.25);
+        else if (key.startsWith('lego')) h.setScale(1.2);
+        else if (key === 'book') h.setScale(1.15);
+
+        // hitbox centrada na base do objeto
+        const bw = Math.max(20, h.displayWidth * 0.7);
+        const bh = Math.max(12, h.displayHeight * 0.5);
+        h.body.setSize(bw / h.scaleX, bh / h.scaleY);
         h.body.updateFromGameObject();
-        h.body.setOffset(h.width * 0.15, h.height * 0.25);
+
+        // tênis fedido: fumacinha verde subindo
+        if (stinky || key === 'sneaker') {
+            this.add.particles(cx, floorY - 20, 'stink', {
+                speedX: { min: -14, max: 14 },
+                speedY: { min: -32, max: -12 },
+                lifespan: { min: 550, max: 1000 },
+                alpha: { start: 0.75, end: 0, ease: 'Sine.easeIn' },
+                scale: { start: 0.65, end: 1.7, ease: 'Sine.easeOut' },
+                frequency: 160,
+                quantity: 1,
+                tint: [0x5fd85a, 0x8fff7a, 0x3aaa40, 0xc8ffb0],
+                advance: 220
+            }).setDepth(4);
+        }
     }
 
     // ---------- HUD ----------
