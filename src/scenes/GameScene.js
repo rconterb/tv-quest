@@ -4,12 +4,7 @@ import { Player, Robot } from '../objects.js';
 import { preloadCharacters, createCharacterAnims } from '../sprites.js';
 import { Sound, Music } from '../audio.js';
 import { loadSave, updateSave } from '../save.js';
-
-const JUMP_VELOCITY = -540;
-const AIR_JUMP_VELOCITY = -500;  // segundo pulo (no ar)
-const SPRING_VELOCITY = -850;
-const COYOTE_MS = 110;      // tempo extra para pular depois de sair da borda
-const BUFFER_MS = 140;      // aperta pulo um pouco antes de pousar e ele acontece
+import { PHYS } from '../physics.js';
 
 export class GameScene extends Phaser.Scene {
     constructor() { super('GameScene'); }
@@ -28,6 +23,8 @@ export class GameScene extends Phaser.Scene {
         this.wasGrounded = false;
         this.lastFallSpeed = 0;
         this.nextRunDust = 0;
+        this.jumpCutAllowed = false;
+        this.onMover = null;
     }
 
     preload() {
@@ -44,6 +41,9 @@ export class GameScene extends Phaser.Scene {
         this.offsetY = this.worldH - ROWS * TILE; // alinha o chão ao fundo da tela
 
         this.createBackground();
+
+        // física da cena (gravidade base; hang no ápice ajusta no update)
+        this.physics.world.gravity.y = PHYS.gravity;
 
         // grupos de física
         this.platforms = this.physics.add.staticGroup();
@@ -76,9 +76,9 @@ export class GameScene extends Phaser.Scene {
         // câmera — follow suave + deadzone generosa (look-ahead no update)
         const cam = this.cameras.main;
         cam.setBounds(0, 0, Math.max(this.worldW, 960), this.worldH);
-        cam.startFollow(this.player, true, 0.08, 0.1);
-        cam.setDeadzone(140, 100);
-        cam.setLerp(0.08, 0.1);
+        cam.startFollow(this.player, true, 0.1, 0.12);
+        cam.setDeadzone(120, 90);
+        cam.setLerp(0.1, 0.12);
         cam.fadeIn(400, 0, 0, 0);
         this.camLookX = 0; // offset lateral suave na direção do movimento
 
@@ -315,8 +315,15 @@ export class GameScene extends Phaser.Scene {
                         break;
                     }
                     case 'r': {
-                        const robot = new Robot(this, cx, floorY - 16,
-                            (col - 3) * TILE + TILE / 2, (col + 3) * TILE + TILE / 2);
+                        // robôs mais rápidos e com patrulha um pouco maior nas fases avançadas
+                        const difficulty = this.levelIndex; // 0..9
+                        const speed = 52 + difficulty * 5;  // 52 → 97
+                        const patrol = 2.5 + Math.min(difficulty, 6) * 0.25; // tiles cada lado
+                        const robot = new Robot(
+                            this, cx, floorY - 16,
+                            cx - patrol * TILE, cx + patrol * TILE,
+                            speed
+                        );
                         robot.setDepth(4);
                         this.robots.add(robot);
                         break;
@@ -330,9 +337,12 @@ export class GameScene extends Phaser.Scene {
                     case 'v': {
                         const plat = this.movers.create(cx, cy, 'platform');
                         plat.moveAxis = ch === 'm' ? 'x' : 'y';
-                        plat.min = (ch === 'm' ? cx : cy) - TILE * 2;
-                        plat.max = (ch === 'm' ? cx : cy) + TILE * 2;
-                        plat.moveSpeed = ch === 'm' ? 60 : 45;
+                        // alcance e velocidade sobem um pouco com a fase
+                        const range = TILE * (2 + Math.min(this.levelIndex, 6) * 0.15);
+                        const baseSpeed = ch === 'm' ? 55 : 42;
+                        plat.min = (ch === 'm' ? cx : cy) - range;
+                        plat.max = (ch === 'm' ? cx : cy) + range;
+                        plat.moveSpeed = baseSpeed + this.levelIndex * 3;
                         if (ch === 'm') plat.setVelocityX(plat.moveSpeed);
                         else plat.setVelocityY(plat.moveSpeed);
                         break;
@@ -473,16 +483,48 @@ export class GameScene extends Phaser.Scene {
         if (this.isDead || !this.player || !this.player.body) return;
 
         const body = this.player.body;
-        const accel = 1600;
+        const dt = Math.min(delta, 40) / 1000;
         const left = this.keys.LEFT.isDown || this.keys.A.isDown || this.leftPressed;
         const right = this.keys.RIGHT.isDown || this.keys.D.isDown || this.rightPressed;
-
-        if (left && !right) body.setAccelerationX(-accel);
-        else if (right && !left) body.setAccelerationX(accel);
-        else body.setAccelerationX(0);
-
-        // pulo com coyote time + jump buffer + altura variável + PULO DUPLO
         const grounded = body.touching.down || body.blocked.down;
+
+        // ---------- movimento horizontal (aceleração + freio manuais) ----------
+        // drag do body fica em 0; controlamos aqui para ar ≠ chão e virada snappy
+        body.setDragX(0);
+        body.setAccelerationX(0);
+
+        const inputDir = left && !right ? -1 : (right && !left ? 1 : 0);
+        const vx = body.velocity.x;
+
+        if (inputDir !== 0) {
+            const reversing = Math.sign(vx) === -inputDir && Math.abs(vx) > 40;
+            let accel = grounded
+                ? (reversing ? PHYS.turnAccel : PHYS.groundAccel)
+                : PHYS.airAccel;
+            // se já está acima da maxSpeed (knockback etc.), não acelera mais na mesma direção
+            if (Math.sign(vx) === inputDir && Math.abs(vx) >= PHYS.maxSpeed) {
+                body.setVelocityX(inputDir * PHYS.maxSpeed);
+            } else {
+                body.setAccelerationX(inputDir * accel);
+            }
+        } else {
+            // freio: forte no chão, leve no ar (preserva momentum do pulo)
+            const drag = grounded ? PHYS.groundDrag : PHYS.airDrag;
+            if (Math.abs(vx) < PHYS.stopThreshold && grounded) {
+                body.setVelocityX(0);
+            } else if (vx !== 0) {
+                const decel = drag * dt;
+                const nv = Math.abs(vx) <= decel ? 0 : vx - Math.sign(vx) * decel;
+                body.setVelocityX(nv);
+            }
+        }
+
+        // cap de velocidade horizontal (não mexe no Y)
+        if (Math.abs(body.velocity.x) > PHYS.maxSpeed) {
+            body.setVelocityX(Math.sign(body.velocity.x) * PHYS.maxSpeed);
+        }
+
+        // ---------- pulo: coyote + buffer + altura variável + duplo ----------
         if (grounded) {
             this.lastGroundedAt = time;
             this.jumpsUsed = 0;
@@ -494,22 +536,34 @@ export class GameScene extends Phaser.Scene {
             this.lastJumpPressedAt = time;
         }
 
-        if (time - this.lastJumpPressedAt < BUFFER_MS) {
-            const firstJump = time - this.lastGroundedAt < COYOTE_MS && this.jumpsUsed === 0;
-            const airJump = !firstJump && this.jumpsUsed < 2;
-            if (firstJump || airJump) {
-                body.setVelocityY(firstJump ? JUMP_VELOCITY : AIR_JUMP_VELOCITY);
-                this.jumpsUsed = firstJump ? 1 : 2;
+        if (time - this.lastJumpPressedAt < PHYS.bufferMs) {
+            const firstJump = time - this.lastGroundedAt < PHYS.coyoteMs && this.jumpsUsed === 0;
+            const airJump = !firstJump && this.jumpsUsed < 2 && !grounded;
+            // permite airJump também se saiu da borda sem pular (jumpsUsed 0 mas coyote expirou)
+            const canAir = airJump || (!firstJump && this.jumpsUsed === 0 && !grounded);
+            if (firstJump || canAir) {
+                const isAir = !firstJump;
+                body.setVelocityY(isAir ? PHYS.airJumpVelocity : PHYS.jumpVelocity);
+                this.jumpsUsed = isAir ? 2 : 1;
                 this.lastJumpPressedAt = -9999;
-                this.jumpCutAllowed = true; // só corta subida de pulo do jogador (mola não)
+                this.jumpCutAllowed = true;
+                // pequeno boost horizontal se estiver segurando direção (ajuda a cruzar gaps)
+                if (inputDir !== 0 && Math.abs(body.velocity.x) < PHYS.maxSpeed * 0.85) {
+                    body.setVelocityX(body.velocity.x + inputDir * 40);
+                }
                 Sound.jump();
-                this.player.squashTo(0.82, 1.18, 100);
-                if (airJump) {
-                    // cambalhota do pulo duplo
-                    this.tweens.add({
+                this.player.squashTo(0.8, 1.2, 95);
+                if (isAir) {
+                    // só cancela a cambalhota anterior — não mata flash de dano etc.
+                    if (this.flipTween) this.flipTween.stop();
+                    this.player.setAngle(0);
+                    this.flipTween = this.tweens.add({
                         targets: this.player, angle: this.player.facing * 360,
-                        duration: 380, ease: 'Quad.easeOut',
-                        onComplete: () => { if (!this.isDead) this.player.setAngle(0); }
+                        duration: 360, ease: 'Quad.easeOut',
+                        onComplete: () => {
+                            this.flipTween = null;
+                            if (!this.isDead) this.player.setAngle(0);
+                        }
                     });
                     this.sparkEmitter.explode(6, this.player.x, this.player.y - 40);
                 } else {
@@ -518,47 +572,59 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        // soltar o botão no meio do pulo corta a subida (pulo curto)
+        // corte de pulo: uma vez ao soltar o botão (pulo curto/longo clássico)
         const jumpHeld = this.keys.UP.isDown || this.keys.W.isDown ||
             this.keys.SPACE.isDown || this.jumpTouchHeld;
-        if (!grounded && !jumpHeld && this.jumpCutAllowed && body.velocity.y < -180) {
-            body.setVelocityY(body.velocity.y * 0.82);
+        if (!grounded && !jumpHeld && this.jumpCutAllowed && body.velocity.y < -100) {
+            body.setVelocityY(body.velocity.y * PHYS.jumpCutMultiplier);
+            this.jumpCutAllowed = false;
         }
         if (grounded || body.velocity.y >= 0) this.jumpCutAllowed = false;
 
-        // aterrissagem: squash + poeira
-        if (!this.wasGrounded && grounded && this.lastFallSpeed > 300) {
-            this.player.squashTo(1.22, 0.78, 90);
-            this.dustEmitter.explode(7, this.player.x, this.player.y - 2);
+        // hang time no ápice — gravidade reduzida perto de vy≈0 (sensação mais fluida)
+        if (!grounded && Math.abs(body.velocity.y) < PHYS.apexThreshold) {
+            this.player.body.setGravityY(PHYS.gravity * (PHYS.apexGravityScale - 1));
+        } else {
+            this.player.body.setGravityY(0); // usa só a gravidade do mundo
+        }
+
+        // aterrissagem: squash + poeira (limiar um pouco menor = feedback mais frequente)
+        if (!this.wasGrounded && grounded && this.lastFallSpeed > 260) {
+            const impact = Phaser.Math.Clamp(this.lastFallSpeed / 700, 0.7, 1.35);
+            this.player.squashTo(1.15 * impact, 0.82 / Math.min(impact, 1.1), 85);
+            this.dustEmitter.explode(Math.round(5 * impact), this.player.x, this.player.y - 2);
             Sound.step();
         }
         this.wasGrounded = grounded;
         this.lastFallSpeed = body.velocity.y;
 
-        // poeirinha ao correr (mais densa conforme a velocidade)
-        if (grounded && Math.abs(body.velocity.x) > 100 && time > this.nextRunDust) {
+        // poeirinha ao correr
+        if (grounded && Math.abs(body.velocity.x) > 90 && time > this.nextRunDust) {
             this.dustEmitter.explode(1, this.player.x - this.player.facing * 8, this.player.y - 2);
-            this.nextRunDust = time + Phaser.Math.Clamp(180 - Math.abs(body.velocity.x) * 0.25, 90, 180);
+            this.nextRunDust = time + Phaser.Math.Clamp(170 - Math.abs(body.velocity.x) * 0.28, 70, 170);
         }
 
         // plataformas móveis: inverte nos limites e carrega o jogador junto
+        this.onMover = null;
         this.movers.getChildren().forEach(p => {
             if (p.moveAxis === 'x') {
-                if (p.x <= p.min) p.setVelocityX(p.moveSpeed);
-                else if (p.x >= p.max) p.setVelocityX(-p.moveSpeed);
+                if (p.x <= p.min) p.setVelocityX(Math.abs(p.moveSpeed));
+                else if (p.x >= p.max) p.setVelocityX(-Math.abs(p.moveSpeed));
             } else {
-                if (p.y <= p.min) p.setVelocityY(p.moveSpeed);
-                else if (p.y >= p.max) p.setVelocityY(-p.moveSpeed);
+                if (p.y <= p.min) p.setVelocityY(Math.abs(p.moveSpeed));
+                else if (p.y >= p.max) p.setVelocityY(-Math.abs(p.moveSpeed));
             }
             if (body.touching.down && p.body.touching.up) {
+                this.onMover = p;
                 this.player.x += p.body.deltaX();
-                if (p.body.deltaY() > 0) this.player.y += p.body.deltaY();
+                // sobe e desce com a plataforma (antes só descia)
+                this.player.y += p.body.deltaY();
             }
         });
 
         // câmera: look-ahead suave na direção do movimento
-        const lookTarget = Phaser.Math.Clamp(body.velocity.x * 0.28, -70, 70);
-        this.camLookX = Phaser.Math.Linear(this.camLookX, lookTarget, 1 - Math.exp(-6 * (delta / 1000)));
+        const lookTarget = Phaser.Math.Clamp(body.velocity.x * 0.32, -80, 80);
+        this.camLookX = Phaser.Math.Linear(this.camLookX, lookTarget, 1 - Math.exp(-7 * dt));
         this.cameras.main.setFollowOffset(-this.camLookX, 0);
 
         // parallax de camadas de fundo
@@ -590,7 +656,7 @@ export class GameScene extends Phaser.Scene {
     onSpring(player, spring) {
         // quica sempre que encostar caindo ou andando (nunca corta um pulo em subida)
         if (player.body.velocity.y >= -50) {
-            player.body.setVelocityY(SPRING_VELOCITY);
+            player.body.setVelocityY(PHYS.springVelocity);
             this.jumpCutAllowed = false; // impulso da mola nunca é cortado
             this.jumpsUsed = 1;          // ainda dá para usar o pulo duplo no ar
             Sound.spring();
@@ -608,10 +674,14 @@ export class GameScene extends Phaser.Scene {
 
     onRobotHit(player, robot) {
         if (robot.squished || this.isDead) return;
-        if (robot.body.touching.up && player.body.touching.down) {
+        // aceita stomp se o jogador está caindo em cima (mais generoso para crianças)
+        const stomping = player.body.velocity.y > 40 &&
+            player.body.bottom <= robot.body.top + 18;
+        if (stomping || (robot.body.touching.up && player.body.touching.down)) {
             robot.squish();
-            player.body.setVelocityY(-420);
+            player.body.setVelocityY(PHYS.stompBounce);
             this.jumpsUsed = 1; // pisão devolve o pulo duplo
+            this.jumpCutAllowed = true;
             this.sparkEmitter.explode(6, robot.x, robot.y - 10);
         } else {
             this.hurt(robot.x);
@@ -633,7 +703,7 @@ export class GameScene extends Phaser.Scene {
 
         this.invulnUntil = this.time.now + 1500;
         const dir = this.player.x < fromX ? -1 : 1;
-        this.player.body.setVelocity(dir * 240, -330);
+        this.player.body.setVelocity(dir * PHYS.hurtKnockbackX, PHYS.hurtKnockbackY);
         this.tweens.add({
             targets: this.player, alpha: 0.25,
             duration: 110, yoyo: true, repeat: 6,

@@ -23,7 +23,8 @@ const config = {
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 1400 },
+            // valor base; GameScene aplica PHYS.gravity (src/physics.js)
+            gravity: { y: 1350 },
             debug: false
         }
     },

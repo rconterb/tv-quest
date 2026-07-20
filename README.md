@@ -22,7 +22,8 @@ Personagens em **sprites estilo Ghibli** (arte embutida). Cenário, inimigos e U
 - 10 fases com rolagem de câmera, ambientadas nos cômodos da casa
 - 2 personagens jogáveis: o menino e a menina de moletom amarelo da Colônia de Férias, mochila verde
 - Inimigos patrulheiros, plataformas móveis, molas, buracos e escaladas
-- Física com *coyote time*, *jump buffering* e altura de pulo variável
+- Física fluida: *coyote time*, *jump buffering*, altura de pulo variável, hang no ápice e freio diferente no ar/chão
+- Fases com dificuldade progressiva e gaps calibrados ao alcance real do pulo (nada impossível de alcançar)
 - Progresso salvo no navegador (fases desbloqueadas + estrelas por fase)
 - Música chiptune em loop com botão de mudo
 
@@ -48,6 +49,7 @@ index.html                  Página do jogo (canvas + Phaser via CDN)
 assets/chars/               Sprites PNG dos personagens (boy/girl)
 tools/build_sprites.py      Regenera PNGs a partir das refs (opcional)
 src/main.js                 Config do Phaser e registro das cenas
+src/physics.js              Constantes de física + limites de design de fase
 src/levels.js               Dados das 10 fases + temas dos cômodos
 src/textures.js             Pixel art procedural do cenário
 src/sprites.js              Preload e animações dos personagens
@@ -60,3 +62,5 @@ src/scenes/VictoryScene.js  Tela final
 ```
 
 Legenda dos mapas (em `src/levels.js`): `#` bloco, `T` TV (objetivo), `t` tênis, `l` lego, `b` livros, `c` estrela, `r` robô, `s` mola, `m`/`v` plataforma móvel (horizontal/vertical), `P` spawn do jogador.
+
+Limites de salto (em tiles, ver `src/physics.js`): pulo simples ~4,5 de vão / ~2,4 de altura; pulo duplo ~7,5 / ~4,5; mola ~6 de altura. Gaps no mapa nunca passam desses tetos.

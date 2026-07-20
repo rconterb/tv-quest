@@ -1,5 +1,6 @@
 // Personagens (sprites 128×128, perfil → DIREITA) e inimigos
 import { Sound } from './audio.js';
+import { PHYS } from './physics.js';
 import {
     CHAR_BODY,
     CHAR_DISPLAY_SCALE,
@@ -32,18 +33,21 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         const bh = CHAR_BODY.height;
         this.body.setSize(bw, bh);
         this.body.setOffset((128 - bw) / 2, 128 - bh - 4);
-        this.body.setDragX(1800);
-        this.body.setMaxVelocity(260, 920);
+        // drag aplicado manualmente no update (diferente no ar / chão)
+        this.body.setDragX(0);
+        this.body.setMaxVelocity(PHYS.maxSpeed, 980);
+        this.body.setMaxSpeed(0); // desliga limite radial; usamos maxVelocity
 
         this.animTime = 0;
         this.facing = 1;
         this.squash = { x: 1, y: 1 };
-        this.bob = 1; // scaleY extra de respiração / passo
+        this.bob = 1;
         this.stepMuted = false;
         this.currentAnim = null;
         this.airFrame = null;
-        this.airPhase = 'mid'; // hysteresis do pulo
+        this.airPhase = 'mid';
         this.runFrameRate = 11;
+        this.lean = 0; // inclinação sutil na corrida
 
         this.playAnim('idle');
         this.applyFacing();
@@ -64,6 +68,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         const sx = this.baseScale * Math.abs(this.squash.x);
         const sy = this.baseScale * this.squash.y * this.bob;
         this.setScale(sx, sy);
+        // lean só no chão; no ar o ângulo é da cambalhota / reset
+        if (this.body && (this.body.touching.down || this.body.blocked.down)) {
+            this.setAngle(this.lean);
+        }
     }
 
     squashTo(sx, sy, dur = 100) {
@@ -101,14 +109,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         const isMoving = speed > 16;
         const isGrounded = this.body.touching.down || this.body.blocked.down;
 
-        if (vx > 22) this.facing = 1;
-        else if (vx < -22) this.facing = -1;
+        if (vx > 18) this.facing = 1;
+        else if (vx < -18) this.facing = -1;
 
-        // bob suave (respiração / passo) — não mexe em body.y
+        // inclinação sutil na corrida (mais “vivo”)
+        const targetLean = isGrounded && isMoving
+            ? Phaser.Math.Clamp(vx / PHYS.maxSpeed, -1, 1) * 6
+            : 0;
+        this.lean = Phaser.Math.Linear(this.lean, targetLean, 1 - Math.exp(-14 * dt));
+
         let targetBob = 1;
         if (!isGrounded) {
             targetBob = 1.02;
-            // hysteresis: evita trocar frame a cada frame de física
             let phase = this.airPhase;
             if (vy < -120) phase = 'up';
             else if (vy > 200) phase = 'down';
@@ -119,16 +131,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         } else if (isMoving) {
             this.playAnim('run');
             const prev = this.animTime;
-            const pace = Phaser.Math.Clamp(speed / 210, 0.55, 1.25);
+            const pace = Phaser.Math.Clamp(speed / 220, 0.55, 1.35);
             this.animTime += delta * 0.01 * pace;
-            // bob de passo sincronizado
-            targetBob = 1 + Math.abs(Math.sin(this.animTime * 0.9)) * 0.035;
-            if (!this.stepMuted && Math.floor(prev / 190) !== Math.floor(this.animTime / 190)) {
+            targetBob = 1 + Math.abs(Math.sin(this.animTime * 0.9)) * 0.04;
+            if (!this.stepMuted && Math.floor(prev / 175) !== Math.floor(this.animTime / 175)) {
                 Sound.step();
             }
-            // frameRate estável (só ajusta de leve)
-            const fr = Phaser.Math.Clamp(9 + speed / 40, 9, 14);
-            if (Math.abs(fr - this.runFrameRate) > 0.8 && this.anims.currentAnim) {
+            const fr = Phaser.Math.Clamp(9 + speed / 36, 9, 15);
+            if (Math.abs(fr - this.runFrameRate) > 0.7 && this.anims.currentAnim) {
                 this.runFrameRate = fr;
                 this.anims.msPerFrame = 1000 / fr;
             }
@@ -144,7 +154,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 }
 
 export class Robot extends Phaser.Physics.Arcade.Sprite {
-    constructor(scene, x, y, minX, maxX) {
+    /**
+     * @param {number} [speed=58] velocidade de patrulha (fases mais difíceis passam valor maior)
+     * @param {number} [patrolTiles=3] alcance de patrulha em tiles a cada lado
+     */
+    constructor(scene, x, y, minX, maxX, speed = 58) {
         super(scene, x, y, 'robot');
         scene.add.existing(this);
         scene.physics.add.existing(this);
@@ -155,7 +169,7 @@ export class Robot extends Phaser.Physics.Arcade.Sprite {
         this.minX = minX;
         this.maxX = maxX;
         this.dir = -1;
-        this.speed = 58;
+        this.speed = speed;
         this.squished = false;
 
         scene.tweens.add({
